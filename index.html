@@ -108,7 +108,7 @@
 <div class="game-page active-page" id="game-page-1">
     <div class="intro-card">
         <h1 style="color: var(--primary); margin-top:0;"><i class="fa-solid fa-book-medical"></i> Rapport de Crise : Émergence du Nova-virus</h1>
-        <p>Mai 1975. Une étrange série de syndromes cliniques non identifiés frappe les services d'urgences du pays. Les rapports s'accumulent mais restent noyés dans la masse des diagnostics quotidiens de routine. Votre mission est de remonter la piste de la contamination pour localiser le <strong>Patient Zéro</strong>, l'épicentre originel, afin de comprendre les mechanisms de diffusion de cette menace.</p>
+        <p>Mai 1975. Une étrange série de syndromes cliniques non identifiés frappe les services d'urgences du pays. Les rapports s'accumulent mais restent noyés dans la masse des diagnostics quotidiens de routine. Votre mission est de remonter la piste de la contamination pour localiser le <strong>Patient Zéro</strong>, l'épicentre originel, afin de comprendre les mécanismes de diffusion de cette menace.</p>
         
         <div class="virus-identity-grid">
             <div class="identity-box">
@@ -124,7 +124,7 @@
                 <div class="symptom-tag-list">
                     <div class="symptom-item"><i class="fa-solid fa-temperature-high" style="color:var(--danger)"></i> Forte température physique générale (fièvre supérieure à 40°C).</div>
                     <div class="symptom-item"><i class="fa-solid fa-bacteria" style="color:var(--purple)"></i> Apparition de plaques rouges douloureuses aiguës sur l'ensemble du corps.</div>
-                    <div class="symptom-item"><i class="fa-solid fa-brain" style="color:var(--primary)"></i> Atteintes neurologiques périphériques sévères (marquées par une <strong>absence complète de réflexe rotulien</strong>).</div>
+                    <div class="symptom-item"><i class="fa-solid fa-brain" style="color:var(--primary)"></i> Atteintes neurologiques périphériques sévères (marquées par une absence complète de réflexe rotulien).</div>
                 </div>
             </div>
         </div>
@@ -210,10 +210,11 @@ Phrase 2 : Il se déplace pour le moment uniquement à vélo.
 
 <div class="game-page" id="game-page-3">
     <div class="main-wrapper">
-        <div class="stats-bar">
-            <div class="stat-card"><h3>comptes rendus sélectionnés</h3><p id="stat-sel">0</p></div>
-            <div class="stat-card"><h3>comptes rendus sélectionnés de personnes infectées</h3><p id="stat-inf" style="color:var(--danger)">0</p></div>
+        <div class="stats-bar" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="stat-card"><h3>comptes rendus sélectionnés</h3><p id="stat-sel">0</p><span id="stat-sel-total" style="font-size:0.8rem; color:#6c757d;"></span></div>
+            <div class="stat-card"><h3>comptes rendus sélectionnés de personnes infectées</h3><p id="stat-inf" style="color:var(--danger)">0</p><span id="stat-inf-total" style="font-size:0.8rem; color:#6c757d;"></span></div>
             <div class="stat-card"><h3>Précision</h3><p id="stat-acc">0%</p></div>
+            <div class="stat-card"><h3>Rappel</h3><p id="stat-recall" style="color:var(--purple)">0%</p></div>
         </div>
      
         <aside class="filters-panel">
@@ -565,9 +566,14 @@ function escapeHtml(str) { return str.replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function updateUI() {
     const sel = filteredData.length;
     const inf = filteredData.filter(d => d.infected).length;
+    const totalCR = allData.length;
+    const totalInfected = allData.filter(d => d.infected).length;
     document.getElementById('stat-sel').innerText = sel;
+    document.getElementById('stat-sel-total').innerText = totalCR > 0 ? `/ ${totalCR}` : '';
     document.getElementById('stat-inf').innerText = inf;
+    document.getElementById('stat-inf-total').innerText = totalInfected > 0 ? `/ ${totalInfected}` : '';
     document.getElementById('stat-acc').innerText = sel > 0 ? Math.round((inf / sel) * 100) + "%" : "0%";
+    document.getElementById('stat-recall').innerText = totalInfected > 0 ? Math.round((inf / totalInfected) * 100) + "%" : "0%";
     const display = document.getElementById('cr-display');
     const hitsBar = document.getElementById('nlp-hits-bar');
  
