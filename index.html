@@ -108,7 +108,7 @@
 <div class="game-page active-page" id="game-page-1">
     <div class="intro-card">
         <h1 style="color: var(--primary); margin-top:0;"><i class="fa-solid fa-book-medical"></i> Rapport de Crise : Émergence du Nova-virus</h1>
-        <p>Mai 1975. Une étrange série de syndromes cliniques non identifiés frappe les services d'urgences du pays. Les rapports s'accumulent mais restent noyés dans la masse des diagnostics quotidiens de routine. Votre mission est de remonter la piste de la contamination pour localiser le <strong>Patient Zéro</strong>, l'épicentre originel, afin de comprendre les mécanismes de diffusion de cette menace.</p>
+        <p>Mai 1975. Une étrange série de patients avec des présentations cliniques suspectes frappe les services d'urgences du pays. Ces patients restent noyés dans la masse des diagnostics quotidiens de routine. Votre mission est de remonter la piste de la contamination pour localiser le <strong>Patient Zéro</strong>, l'épicentre originel, afin de comprendre les mécanismes de diffusion de cette menace.</p>
         
         <div class="virus-identity-grid">
             <div class="identity-box">
@@ -122,18 +122,18 @@
             <div class="identity-box" style="border-left-color: var(--danger);">
                 <h3 style="margin-top:0; color: var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Tableau Clinique (Symptômes Majeurs)</h3>
                 <div class="symptom-tag-list">
-                    <div class="symptom-item"><i class="fa-solid fa-temperature-high" style="color:var(--danger)"></i> Forte température physique générale (fièvre supérieure à 40°C).</div>
-                    <div class="symptom-item"><i class="fa-solid fa-bacteria" style="color:var(--purple)"></i> Apparition de plaques rouges douloureuses aiguës sur l'ensemble du corps.</div>
-                    <div class="symptom-item"><i class="fa-solid fa-brain" style="color:var(--primary)"></i> Atteintes neurologiques périphériques sévères (marquées par une absence complète de réflexe rotulien).</div>
+                    <div class="symptom-item"><i class="fa-solid fa-temperature-high" style="color:var(--danger)"></i> Fièvre supérieure à 40°C.</div>
+                    <div class="symptom-item"><i class="fa-solid fa-bacteria" style="color:var(--purple)"></i> Apparition rapide de plaques rouges douloureuses aiguës sur l'ensemble du corps.</div>
+                    <div class="symptom-item"><i class="fa-solid fa-brain" style="color:var(--primary)"></i> Atteintes neurologiques périphériques (marquées par une absence de réflexe rotulien).</div>
                 </div>
             </div>
         </div>
 
         <h3 style="margin-top:30px;"><i class="fa-solid fa-chart-line"></i> Données de la vague épidémique</h3>
-        <p>Voici la courbe des infections du Nova-virus détecté tel quel dans les hôpitaux français:</p>
+        <p>Voici la courbe des infections du Nova-virus détectées dans les hôpitaux français:</p>
 
         <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 25px; text-align: center;">
-            <img src="courbe.png" alt="" style="max-width: 100%; height: auto; max-height: 350px; border-radius: 4px;">
+            <img src="courbe.png" alt="" style="max-width: 100%; height: auto; max-height: 650px; border-radius: 4px;">
         </div>
 
         <div class="page-navigation-footer">
@@ -146,7 +146,7 @@
 <div class="game-page" id="game-page-2">
     <div class="intro-card">
         <h1 style="color: var(--primary); margin-top:0;"><i class="fa-solid fa-graduation-cap"></i> Guide d'Utilisation du Terminal de Recherche NLP</h1>
-        <p>Le terminal d'enquête scanne de façon sémantique l'anamnèse des comptes-rendus médicaux. Pour isoler les pistes complexes de manière chirurgicale, apprenez à manipuler notre moteur d'analyse à l'aide de ces formats types :</p>
+        <p>Le terminal d'enquête scanne de façon sémantique l'anamnèse des comptes-rendus médicaux. Pour isoler les pistes complexes, apprenez à manipuler notre moteur d'analyse à l'aide de ces formats types :</p>
 
         <div class="tuto-section">
             <h3 style="color:var(--primary); margin-bottom:4px;"><i class="fa-solid fa-magnifying-glass"></i> 1. Détection simple par Section (Mots Synonymes)</h3>
@@ -175,29 +175,32 @@ Il ne signale aucun déplacement récent à l'étranger.
 ============================================================
 Anamnèse :
 Admis suite à un accident de la route avec <mark class="hl-exc">choc frontal</mark>.
-Les constantes vitales restent stables pour le moment.
+Les paramètres vitaux restent stables.
 ############################################################</div>
             <span class="badge-explain" style="background:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> COMPTE-RENDU ÉLIMINÉ</span>
         </div>
 
         <div class="tuto-section">
-            <h3 style="color:var(--purple); margin-bottom:4px;"><i class="fa-solid fa-link"></i> 3. Isolation Contextuelle par "Groupe de Phrase"</h3>
-            <p style="margin-top:0; font-size:0.9rem; color:#555;">Par défaut, le moteur cherche les critères sur l'ensemble du rapport textuel. <strong>Assigner le même Groupe (ex: Groupe 1) à deux sections distinctes force la validation de ces critères au sein d'une seule et même phrase autonome.</strong></p>
+            <h3 style="color:var(--purple); margin-bottom:4px;"><i class="fa-solid fa-link"></i> 3. Isolement Contextuel par "Phrase"</h3>
+            <p style="margin-top:0; font-size:0.9rem; color:#555;">Par défaut, le moteur cherche les critères sur l'ensemble du rapport textuel. <strong>Assigner le même Groupe (ex: Groupe 1) à deux sections distinctes force la validation de ces critères au sein d'une seule et même phrase/groupe.</strong> Cela évite les associations improbables ou erronées.</p>
             
             <div style="font-size:0.85rem; font-weight:bold; color:#495057; margin-bottom:5px;">
                 Configuration requise (Liée dans le même bloc de phrase) :<br>
-                • Section A [Véhicule] (Groupe 1) <i class="fa-solid fa-arrow-right"></i> Terme : <code style="background:#e9ecef; padding:2px 4px; border-radius:3px;">Voiture</code><br>
-                • Section B [Action] (Groupe 1) <i class="fa-solid fa-arrow-right"></i> Terme : <code style="background:#e9ecef; padding:2px 4px; border-radius:3px;">Acheter</code>
+                • Section A [Sujet] (Groupe 1) <i class="fa-solid fa-arrow-right"></i> Terme : <code style="background:#e9ecef; padding:2px 4px; border-radius:3px;">Patient</code><br>
+                • Section B [Habitude] (Groupe 1) <i class="fa-solid fa-arrow-right"></i> Terme : <code style="background:#e9ecef; padding:2px 4px; border-radius:3px;">Fume</code>
             </div>
             
             <div class="cr-styled-box" style="border-left-color: var(--purple);">############################################################
-| Hôpital : CHU Lyon Sud   | T°C : 36.9 | Dr : Moreau    |
-============================================================
-Anamnèse :
-Phrase 1 : Le sujet a l'intention d' <mark class="hl-inc">acheter</mark> une nouvelle <mark class="hl-inc">voiture</mark> le mois prochain.
-Phrase 2 : Il se déplace pour le moment uniquement à vélo.
-############################################################</div>
-            <p style="font-size:0.85rem; margin:10px 0 0 0; color:#555;"><i class="fa-solid fa-circle-info"></i> Si le mot <em>"Acheter"</em> était en Phrase 1 et <em>"Voiture"</em> en Phrase 2, ce compte-rendu aurait été écarté car l'association n'aurait pas été commise dans la même phrase.</p>
+        | Hôpital : Urgences CHU   | T°C : 38.2 | Dr : Moreau    |
+        ============================================================
+        Histoire de la maladie :
+        Phrase 1 : Le <mark class="hl-inc">patient</mark> déclare qu'il <mark class="hl-inc">fume</mark> un paquet par jour depuis 10 ans.
+        Phrase 2 : Son épouse a arrêté le tabac il y a deux mois.
+        ############################################################</div>
+            
+            <p style="font-size:0.85rem; margin:10px 0 0 0; color:#555;">
+                <i class="fa-solid fa-circle-info"></i> Si le texte disait : <em>"Le <strong>patient</strong> est non-fumeur. Son épouse <strong>fume</strong> au balcon."</em>, les mots auraient été isolés dans deux phrases différentes. Grâce au Groupe 1, ce compte-rendu improbable / hors-sujet aurait été écarté.
+            </p>
             <span class="badge-explain" style="background:var(--success)"><i class="fa-solid fa-circle-check"></i> COMPTE-RENDU CONSERVÉ (ASSOCIATION PHRASE VALIDÉE)</span>
         </div>
 
