@@ -1,0 +1,4 @@
+# Contiennent la solution du jeu : générés par generateur/generer.py, jamais publiés (le dépôt est public).
+docs/solution.md
+tests/attendu.js
+__pycache__/

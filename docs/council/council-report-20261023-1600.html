@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council Patient Zéro</title>
+<style>
+:root {
+  --bg: #ffffff; --surface: #f7f7f5; --text: #1d1d1f; --muted: #5f6368; --border: #e2e2de;
+  --accent: #b4472f; --pos-bg: #e3f2e8; --pos: #1e6b3e; --neg-bg: #fbe5e1; --neg: #9b2f1c;
+  --mid-bg: #fdf1d6; --mid: #7a5a0b; --none-bg: #efefed; --none: #7b7b78; --code-bg: #f0efeb;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17181a; --surface: #1f2023; --text: #ececec; --muted: #a3a6ab; --border: #34363a;
+    --accent: #e0775f; --pos-bg: #1d3526; --pos: #8fd3a8; --neg-bg: #3d221d; --neg: #f0a596;
+    --mid-bg: #3a3020; --mid: #e6c77a; --none-bg: #2a2b2e; --none: #9a9a97; --code-bg: #2a2b2e;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17181a; --surface: #1f2023; --text: #ececec; --muted: #a3a6ab; --border: #34363a;
+  --accent: #e0775f; --pos-bg: #1d3526; --pos: #8fd3a8; --neg-bg: #3d221d; --neg: #f0a596;
+  --mid-bg: #3a3020; --mid: #e6c77a; --none-bg: #2a2b2e; --none: #9a9a97; --code-bg: #2a2b2e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+header .kicker { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+h1 { font-size: 28px; line-height: 1.25; margin: 0 0 12px; }
+h2 { font-size: 20px; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 17px; margin: 0 0 8px; }
+p { margin: 0 0 10px; }
+ul, ol { margin: 0 0 10px; padding-left: 22px; }
+li { margin: 3px 0; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: .9em; overflow-wrap: anywhere; }
+blockquote { margin: 0 0 12px; padding: 8px 14px; border-left: 3px solid var(--border); color: var(--muted); }
+.lede { color: var(--muted); margin: 0; }
+.first-step { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: 8px; padding: 16px 18px; margin: 24px 0 8px; }
+.first-step h2 { border: 0; margin: 0 0 8px; padding: 0; font-size: 17px; color: var(--accent); }
+.verdict-block { border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; margin: 0 0 14px; background: var(--bg); }
+.table-wrap { overflow-x: auto; margin: 0 0 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+thead th { background: var(--surface); font-weight: 600; }
+.grid th[scope="col"] { font-size: 13px; white-space: normal; min-width: 100px; }
+.grid th[scope="row"] { font-weight: 500; min-width: 200px; }
+.grid td { text-align: center; }
+.plan td:first-child { white-space: nowrap; font-weight: 600; }
+.plan td:nth-child(2) { min-width: 120px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill.pos { background: var(--pos-bg); color: var(--pos); }
+.pill.neg { background: var(--neg-bg); color: var(--neg); }
+.pill.mid { background: var(--mid-bg); color: var(--mid); }
+.pill.none { background: var(--none-bg); color: var(--none); font-weight: 500; }
+.tally { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 16px 0 0; }
+.tally div { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-size: 14px; }
+.tally strong { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+.tally .big { font-size: 22px; font-weight: 700; color: var(--text); display: block; line-height: 1.2; margin-bottom: 2px; }
+details { border: 1px solid var(--border); border-radius: 8px; margin: 0 0 10px; background: var(--bg); }
+details > summary { cursor: pointer; padding: 12px 16px; font-weight: 600; list-style-position: inside; }
+details[open] > summary { border-bottom: 1px solid var(--border); }
+details .body { padding: 14px 18px; }
+.advisor { border-left: 4px solid var(--c, var(--accent)); }
+.letter { font-weight: 400; color: var(--muted); font-size: 13px; margin-left: 8px; }
+.review { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+.review:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+@media (max-width: 600px) { h1 { font-size: 23px; } .verdict-block, .first-step { padding: 14px; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <p class="kicker">LLM Council · jeu Patient Zéro · 23/10/2026</p>
+  <h1>Que faire pour rendre le jeu Patient Zéro clair, crédible et jouable sur téléphone&nbsp;?</h1>
+  <p class="lede">Jeu d'enquête pour des infirmiers novices en IA. Pierre demande une interface plus claire et
+  adaptée au téléphone, des données propres, un vrai tutoriel, et une sélection sur données structurées qui
+  montre les tables et l'effet de chaque filtre sur leur nombre de lignes.</p>
+</header>
+
+<section class="first-step">
+  <h2>La première chose à faire</h2>
+  <p>Écrire la <strong>page de scénario</strong>. Elle dit comment le virus est arrivé, qui a contaminé qui et
+  quand, en respectant 2 à 4 semaines d'incubation, et ce que l'infirmier doit avoir appris à la fin. Le
+  générateur de données, le tutoriel et l'interface en découlent.</p>
+</section>
+
+<h2>Ce que l'audit du dépôt a trouvé</h2>
+<p>Faits mesurés sur <code>data.json</code> et <code>index.html</code> (commit <code>616004e</code>), avant et
+pendant la session.</p>
+<div class="tally">
+  <div><strong>L'énigme contredit la fiche du virus</strong><span class="big">24 patients</span>infectés entre le
+  18/03 et le 31/03, juste après le patient zéro attendu (P0925, 17/03), alors que l'incubation est de 2 à 4
+  semaines. Un seul mentionne Karovia.</div>
+  <div><strong>La réponse est donnée au joueur</strong><span class="big">infected</span>Le champ est livré au
+  navigateur, le bandeau compte les infectés sélectionnés en direct, et le message d'erreur souffle « cherchez le
+  cas infecté le plus ancien ».</div>
+  <div><strong>Hôpital incohérent</strong><span class="big">87 %</span>des visites ont un CHU dans l'en-tête du
+  CR différent de celui de la colonne. 559 patients changent de CHU d'une visite à l'autre.</div>
+  <div><strong>La courbe ne décrit pas les données</strong><span class="big">45 %</span>des patients sont
+  infectés, à un rythme stable de mars à octobre, alors que <code>courbe.png</code> montre une vague de juin à
+  novembre.</div>
+  <div><strong>Signal trop parfait</strong><span class="big">100 %</span>des infectés ont les 3 symptômes et
+  T ≥ 40 °C ; après T0, le diagnostic sépare parfaitement infectés et non-infectés. Le patient zéro est le seul CR
+  avec un diagnostic unique.</div>
+  <div><strong>Téléphone</strong><span class="big">0 viewport</span>Sans <code>&lt;meta name="viewport"&gt;</code>,
+  la page s'affiche en largeur bureau rétrécie. Toutes les issues valent « Retour à domicile ».</div>
+</div>
+
+<h2>Verdict du président</h2>
+
+<div class="verdict-block">
+  <h3>Où le council est d'accord</h3>
+  <ul>
+    <li><strong>Il manque un script générateur, et c'est la cause commune des problèmes.</strong> Quatre
+    conseillers sur cinq le disent. La courbe, le récit, les données et les messages ont été faits chacun de son
+    côté, donc ils se contredisent. Corriger <code>data.json</code> à la main ferait revenir les mêmes erreurs.</li>
+    <li><strong>L'énigme est fausse.</strong> Hors P0925, 24 patients (42 visites) sont infectés avant le 31/03,
+    le premier dès le 18/03. P0925 ne peut pas être à l'origine de ces cas. Un infirmier attentif s'en
+    apercevra.</li>
+    <li><strong>Le jeu donne la réponse</strong> : champ « infected » envoyé au navigateur, compteur
+    d'infectés en direct, indice dans le message d'erreur.</li>
+    <li><strong>Ce n'est pas encore de l'IA</strong>, c'est une recherche par mots-clés. Il faut le dire, et
+    montrer où elle échoue (négations, synonymes).</li>
+    <li><strong>Le tutoriel doit se jouer, pas se lire</strong> : une mission guidée sur les vraies données.</li>
+    <li><strong>Pas de refonte lourde</strong> : ni React ni serveur. Garder les fautes de frappe (le bruit
+    utile), supprimer les absurdités cliniques.</li>
+  </ul>
+  <p>Une correction : « T ≥ 40 puis tri par date » ne donne pas la réponse, car les 8 premières visites à
+  T ≥ 40 sont des non-infectés. Avec T ≥ 40 et « Karovia », P0925 arrive en 3<sup>e</sup> position. Le jeu est
+  trop facile, mais pas trivial.</p>
+</div>
+
+<div class="verdict-block">
+  <h3>Où le council diverge</h3>
+  <ul>
+    <li><strong>L'ordre.</strong> L'Œil extérieur veut d'abord l'objectif et le vocabulaire, et les données en
+    dernier. Les autres veulent d'abord le générateur. Reprendre les textes coûte une soirée et ne sera pas perdu,
+    mais un tutoriel bâti sur une énigme fausse sera à réécrire.</li>
+    <li><strong>Précision et rappel.</strong> Les retirer (Contradicteur, Exécutant, Œil extérieur), les garder
+    sur un échantillon annoté (Expansionniste), ou les calculer par rapport au diagnostic après T0 (Premiers
+    principes). Cette dernière option règle le débat : la mesure repose sur une étiquette que le joueur voit
+    aussi.</li>
+    <li><strong>Un vrai modèle d'IA.</strong> L'Expansionniste veut des étiquettes calculées à l'avance par un
+    modèle ; le Contradicteur préfère assumer les mots-clés. La démarche « régler le filtre après T0, l'appliquer
+    avant » montre déjà le principe de l'apprentissage supervisé, sans modèle. Le classifieur peut attendre.</li>
+    <li><strong>Plusieurs tables.</strong> Le Contradicteur juge qu'une seule suffit, Pierre veut les voir. Trois
+    tables simples, reliées par l'identifiant patient, sans jointure à faire par le joueur, satisfont les
+    deux.</li>
+  </ul>
+</div>
+
+<div class="verdict-block">
+  <h3>Angles morts relevés par la relecture</h3>
+  <ul>
+    <li><strong>Le cadre des données de santé est absent</strong> (5 relecteurs sur 5) : secret médical,
+    pseudonymisation, RGPD, CNIL, entrepôts de données encadrés. Le jeu consiste à identifier une personne dans
+    des dossiers médicaux, ce que la recherche s'interdit. Sans débriefing, il apprend que fouiller des CR est
+    facile et sans conséquence.</li>
+    <li><strong>« Patient zéro » est une notion stigmatisante</strong> (Gaëtan Dugas et le VIH). Il faut aussi
+    distinguer le cas index (premier cas détecté) du patient zéro (premier infecté) : c'est une leçon en soi.</li>
+    <li><strong>Aucun objectif pédagogique n'est écrit</strong> : ni débriefing, ni moyen de mesurer ce que les
+    infirmiers ont retenu.</li>
+    <li><strong>Le poids</strong> : 2 Mo de JSON sur un téléphone en 4G ou sur le Wi-Fi de l'hôpital.</li>
+    <li><strong>Les biais de codage des diagnostics</strong> ne sont jamais évoqués.</li>
+  </ul>
+</div>
+
+<div class="verdict-block">
+  <h3>La recommandation : d'abord une source de vérité, ensuite l'interface</h3>
+  <div class="table-wrap">
+  <table class="plan">
+    <thead><tr><th>Étape</th><th>Demande de Pierre</th><th>Ce qu'il faut faire</th></tr></thead>
+    <tbody>
+      <tr><td>1. Scénario</td><td>Données propres (préalable)</td><td>Une page qui fixe la date d'arrivée du
+      virus, une chaîne de transmission qui respecte l'incubation, quelques pour cent de malades et une vraie
+      vague, 2 ou 3 objectifs pédagogiques et le contenu du débriefing. La faire relire par un soignant.</td></tr>
+      <tr><td>2. Soirée de correctifs</td><td>Interface et téléphone (début)</td><td>Meta viewport et media query
+      qui empile la grille et les cartes sous 700 px. Objectif dès le premier écran ; T0 et 1975 expliqués en une
+      phrase. « NLP » → « recherche dans le texte », « Groupe » → « dans la même phrase », « Exclure » → « ne doit
+      pas contenir ». Retirer l'indice, le bandeau précision/rappel et le compteur d'infectés. Vérifier la réponse
+      par un hachage. Possible en parallèle de l'étape 1.</td></tr>
+      <tr><td>3. Générateur</td><td>Données propres</td><td><code>generer.py</code> avec graine fixe produit
+      trois tables : patients, visites (diagnostic, T°, PAS, FC en colonnes) et CR. Même CHU partout, chaque
+      patient garde le sien, issue selon la gravité, bruit réaliste (infectés incomplets, non-infectés fiévreux,
+      plus de gabarits, fautes conservées), diagnostic du patient zéro non unique, « infected » jamais envoyé au
+      navigateur, courbe tracée à partir des données, fichier allégé.</td></tr>
+      <tr><td>4. Tables et entonnoir</td><td>Sélection structurée</td><td>Un onglet par table avec son nombre de
+      lignes. Les filtres s'appliquent un par un et affichent l'entonnoir (« visites : 1921 → 412 → 87 »), empilé
+      verticalement sur téléphone. Précision et rappel reviennent ici, calculés par rapport au diagnostic, après
+      T0.</td></tr>
+      <tr><td>5. Tutoriel</td><td>Tutoriel didactique</td><td>Un niveau 0 dans le vrai terminal, en 4 missions
+      à réponse chiffrée : chercher « plaques rouges » ; tomber sur « absence de plaques rouges » ; utiliser « dans
+      la même phrase » ; régler son filtre après T0, l'appliquer avant, remonter l'incubation. Puis un écran de
+      débriefing : « ce que vous venez de faire s'appelle… », limites des mots-clés, pseudonymisation et CNIL, cas
+      index et patient zéro.</td></tr>
+      <tr><td>6. Test</td><td>Interface et téléphone (fin)</td><td>Deux infirmiers jouent sur leur téléphone,
+      dix minutes, sans aide. Ne retoucher l'interface mobile qu'après les avoir regardés jouer.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Pour plus tard seulement : un classifieur calculé à l'avance, des scénarios rejouables, des niveaux de
+  difficulté.</p>
+</div>
+
+<h2>Positions des conseillers</h2>
+<p>Ce que chaque conseiller a défendu sur les points qui comptent.</p>
+<div class="table-wrap">
+<table class="grid">
+  <thead>
+    <tr>
+      <th scope="col">Position</th>
+      <th scope="col"><span class="dot" style="background:#b4472f"></span>Contradicteur</th>
+      <th scope="col"><span class="dot" style="background:#2f6fb4"></span>Premiers principes</th>
+      <th scope="col"><span class="dot" style="background:#2e8b57"></span>Expansionniste</th>
+      <th scope="col"><span class="dot" style="background:#7a4fb0"></span>Œil extérieur</th>
+      <th scope="col"><span class="dot" style="background:#b07a1f"></span>Exécutant</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row">Écrire un générateur de données avant le reste</th>
+      <td><span class="pill pos">Pour</span></td><td><span class="pill pos">Pour</span></td>
+      <td><span class="pill pos">Pour</span></td><td><span class="pill neg">Données en dernier</span></td>
+      <td><span class="pill pos">Pour</span></td></tr>
+    <tr><th scope="row">L'énigme actuelle ne tient pas</th>
+      <td><span class="pill pos">Défaut fatal</span></td><td><span class="pill pos">Pas de vérité de référence</span></td>
+      <td><span class="pill mid">Cohérence à refaire</span></td><td><span class="pill none">Non abordé</span></td>
+      <td><span class="pill mid">Contenu à corriger</span></td></tr>
+    <tr><th scope="row">Retirer précision et rappel du terminal</th>
+      <td><span class="pill pos">Retirer</span></td><td><span class="pill mid">Recalculer sur le diagnostic</span></td>
+      <td><span class="pill neg">Garder, échantillon annoté</span></td><td><span class="pill pos">Retirer ou débriefing</span></td>
+      <td><span class="pill pos">Retirer</span></td></tr>
+    <tr><th scope="row">Ajouter un vrai modèle d'IA</th>
+      <td><span class="pill neg">Assumer les mots-clés</span></td><td><span class="pill mid">Logique supervisée, sans modèle</span></td>
+      <td><span class="pill pos">Pour</span></td><td><span class="pill mid">« Je ne vois pas l'IA »</span></td>
+      <td><span class="pill none">Non abordé</span></td></tr>
+    <tr><th scope="row">Plusieurs tables et entonnoir de lignes</th>
+      <td><span class="pill mid">Une table patients suffit</span></td><td><span class="pill pos">Pour, ensuite</span></td>
+      <td><span class="pill pos">Cœur visuel</span></td><td><span class="pill none">Non abordé</span></td>
+      <td><span class="pill pos">Semaine 2</span></td></tr>
+    <tr><th scope="row">Tutoriel en mission guidée sur les vraies données</th>
+      <td><span class="pill mid">Après l'énigme</span></td><td><span class="pill pos">Pour</span></td>
+      <td><span class="pill pos">Niveau 0</span></td><td><span class="pill pos">Pour</span></td>
+      <td><span class="pill pos">4 missions</span></td></tr>
+    <tr><th scope="row">Téléphone : viewport d'abord, refonte après test</th>
+      <td><span class="pill pos">Pour</span></td><td><span class="pill mid">Format des séances d'abord</span></td>
+      <td><span class="pill mid">Empiler l'entonnoir</span></td><td><span class="pill mid">3<sup>e</sup> priorité</span></td>
+      <td><span class="pill pos">Soirée 1</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Relecture anonyme</h2>
+<div class="tally">
+  <div><strong>Réponse la plus solide</strong><span class="big">Premiers principes</span>5 relecteurs sur 5 :
+  elle trouve la cause commune (aucun scénario de référence) et le seul déroulé qui règle à la fois la fuite et
+  le faux « IA ».</div>
+  <div><strong>Plus gros angle mort</strong><span class="big">Œil extérieur</span>5 relecteurs sur 5 : elle met
+  les données en dernier alors que l'énigme est fausse. L'Expansionniste est jugé trop lourd pour un développeur
+  seul (5 sur 5).</div>
+  <div><strong>Oublis communs</strong><span class="big">Cadre légal</span>5 sur 5. Aussi : objectifs et
+  débriefing (3), notion stigmatisante de patient zéro (2), poids du JSON (2), cas index (1), biais de codage
+  (1).</div>
+</div>
+
+<h2>Réponses complètes des conseillers</h2>
+
+<details class="advisor" style="--c:#b4472f">
+<summary>Le Contradicteur <span class="letter">réponse B</span></summary>
+<div class="body">
+<p><strong>Le défaut fatal n'est pas dans la liste de Pierre : l'énigme elle-même ne tient pas.</strong> P0925
+consulte le 17/03. Avant le 31/03, on trouve déjà 25 autres patients infectés (43 visites), dès le 18/03, et 2
+seulement mentionnent Karovia. Avec une incubation de 2 à 4 semaines, P0925 ne peut pas avoir contaminé quelqu'un
+qui est malade le lendemain. Un infirmier qui a lu la fiche du virus le verra. Il conclura soit que la réponse
+attendue est fausse, soit que les données sont truquées. Il faut d'abord écrire le script générateur qui respecte
+l'incubation, puis seulement reprendre l'interface.</p>
+<p><strong>Deuxième défaut : on résout le jeu sans « IA ».</strong> On met la température minimale à 40, on
+trie par date, on lit les premiers CR, et c'est fini. Ce que le jeu appelle « NLP », c'est de la recherche par
+mots-clés avec des opérateurs booléens. Le présenter comme de l'IA à des novices, c'est leur mentir. Mieux vaut
+l'assumer : le jeu montre les limites des mots-clés (négations, « rougeole »), et c'est ce qui justifie l'IA. Il
+faut que la température seule ne suffise pas.</p>
+<p><strong>Troisième défaut : la demande n° 4 aggrave la fuite.</strong> La précision et le rappel en direct
+supposent de connaître la vérité. Il faut les retirer du terminal, retirer « infected » du navigateur (ne garder
+qu'un hachage de la réponse) et les réserver au tutoriel, sur un échantillon annoté. Plusieurs tables à joindre,
+c'est un concept de plus pour des novices : une table patients en lecture seule suffit.</p>
+<p><strong>À éviter :</strong> refondre l'interface pour le téléphone avant de connaître le format des séances
+(la meta viewport suffit d'abord) ; nettoyer au point de supprimer les fautes de frappe (c'est le bruit
+pédagogique) ; écrire le tutoriel avant que l'énigme soit cohérente.</p>
+<p><em>Note de l'animateur : après vérification, 24 patients et 42 visites ; la température seule ne suffit pas
+(voir le verdict).</em></p>
+</div>
+</details>
+
+<details class="advisor" style="--c:#2f6fb4">
+<summary>Le Penseur des premiers principes <span class="letter">réponse E</span></summary>
+<div class="body">
+<p><strong>Pierre pose une question d'interface, mais le problème est ailleurs : le jeu n'a pas de vérité de
+référence.</strong> Il n'existe ni scénario épidémiologique écrit, ni script générateur. La courbe, le récit, les
+données et le message d'erreur ont été fabriqués chacun de leur côté, donc ils se contredisent. Corriger
+<code>data.json</code> à la main ferait revenir le même problème.</p>
+<ol>
+<li><strong>Écrire sur une page ce qui s'est « réellement » passé</strong> : date d'arrivée du patient zéro,
+chaîne de contamination, quelques cas avant T0 puis la croissance, une proportion de malades crédible (quelques %,
+pas 45 %). Faire relire par un soignant.</li>
+<li><strong>Un seul script générateur</strong> qui produit les tables (patients, visites, CR, avec diagnostic, PAS
+et FC en colonnes) et la courbe. « infected » n'est jamais envoyé au navigateur ; vérification par hash ; le
+patient zéro n'est plus le seul CR à porter un diagnostic unique.</li>
+<li><strong>Rebâtir le déroulé autour de l'idée déjà présente mais inexploitée.</strong> Après T0, le diagnostic
+sert d'étiquette. Le joueur règle son filtre texte sur cette période (précision et rappel calculés par rapport au
+diagnostic), puis l'applique avant T0, où aucun diagnostic n'existe, et remonte de 2 à 4 semaines d'incubation.
+Apprendre là où l'on sait, appliquer là où l'on ne sait pas : la fuite disparaît d'elle-même.</li>
+<li><strong>Seulement ensuite :</strong> tutoriel (première mission guidée), téléphone, compteurs de lignes par
+table.</li>
+</ol>
+<p><strong>À éviter :</strong> peaufiner l'interface tant que les données ne sont pas crédibles ; appeler « IA »
+une recherche par mots-clés sans montrer où elle échoue ; choisir entre téléphone et poste fixe avant d'avoir
+fixé le format des séances.</p>
+</div>
+</details>
+
+<details class="advisor" style="--c:#2e8b57">
+<summary>L'Expansionniste <span class="letter">réponse C</span></summary>
+<div class="body">
+<p>Ce jeu reproduit le vrai travail de la surveillance syndromique (Santé publique France, réseau OSCOUR des
+passages aux urgences) et celui d'un entrepôt de données de santé qui constitue une cohorte. Il faut
+l'assumer.</p>
+<ol>
+<li><strong>D'abord un générateur de données</strong> (script Python avec graine) : cohérence clinique, courbe
+tirée des mêmes données, vraies tables. Il ouvre des scénarios rejouables : un autre patient zéro, un autre
+virus, trois niveaux de difficulté.</li>
+<li><strong>Faire de l'entonnoir de filtres le cœur visuel</strong> : 1921 → 412 → 87 → 3 lignes, filtre après
+filtre et table par table.</li>
+<li><strong>Ajouter vraiment de l'IA</strong> : des étiquettes calculées à l'avance par un modèle, livrées dans le
+JSON, avec quelques erreurs volontaires. Le joueur voit l'IA réussir là où le mot-clé échoue et se tromper
+ailleurs.</li>
+<li><strong>Transformer la fuite en pédagogie</strong> : précision et rappel calculés sur un petit échantillon
+annoté par un « médecin référent » fictif.</li>
+<li><strong>Un tutoriel qui soit un niveau 0 jouable</strong>, et un écran de bilan : « ce que vous venez de faire
+s'appelle… ».</li>
+</ol>
+<p><strong>À éviter :</strong> rafistoler <code>data.json</code> à la main, ou écrire le tutoriel comme une page
+statique de plus.</p>
+</div>
+</details>
+
+<details class="advisor" style="--c:#7a4fb0">
+<summary>L'Œil extérieur <span class="letter">réponse D</span></summary>
+<div class="body">
+<p><strong>Je ne sais pas ce que je dois faire ni comment on gagne.</strong> L'objectif arrive seulement à la
+page 3, dans une petite case en bas. Il faut l'écrire dès le premier écran : « Un patient a ramené ce virus en
+France. Retrouvez son identifiant. »</p>
+<p><strong>Le vocabulaire m'exclut</strong> : « Terminal d'enquête », « Filtres NLP &amp; Multi-combinaisons »,
+« Isolement contextuel », « Élimination radicale », « Section », « Groupe 1 », « Précision », « Rappel ».
+Remplacer « NLP » par « recherche dans le texte », « Groupe » par « dans la même phrase », « Exclure » par « ne
+doit pas contenir ».</p>
+<p><strong>Un indicateur me donne la réponse sans que je le comprenne</strong> : comment le logiciel sait-il qui
+est infecté, puisque c'est ce que je cherche ?</p>
+<p><strong>Je ne vois pas l'IA</strong> : je tape des mots-clés. Si personne ne fait le lien, le joueur repart sans
+avoir compris.</p>
+<p><strong>Les exemples du guide parlent d'autre chose</strong> (« choc frontal », « le patient fume »). Le
+tutoriel devrait être la première minute du jeu, sur les vraies données.</p>
+<p><strong>L'année 1975 et « T0 » m'arrêtent</strong> : on ne m'explique ni pourquoi 1975, ni ce que veut dire
+T0.</p>
+<p><strong>Ordre :</strong> 1) objectif et jargon (une soirée) ; 2) tutoriel en mission guidée ; 3) téléphone ;
+4) données. <strong>À éviter :</strong> ajouter des fonctions avant d'avoir regardé un vrai infirmier jouer seul,
+sans aide, pendant dix minutes.</p>
+</div>
+</details>
+
+<details class="advisor" style="--c:#b07a1f">
+<summary>L'Exécutant <span class="letter">réponse A</span></summary>
+<div class="body">
+<p><strong>Le blocage n'est pas l'interface : il n'existe aucun script qui génère les données.</strong></p>
+<p><strong>Soirée 1</strong> : <code>&lt;meta name="viewport"&gt;</code> et media query qui empile la grille
+(390 px + 1fr) et les 4 cartes sous 700 px ; supprimer l'indice « cherchez le cas infecté le plus ancien » ;
+vérification par hash ; retirer précision et rappel du terminal, les garder seulement dans le tutoriel sur
+environ 40 CR annotés.</p>
+<p><strong>Semaine 1</strong> : <code>generer.py</code> avec graine fixe, trois tables (<code>patients</code>,
+<code>visites</code> avec PAS, FC et diagnostic, <code>cr</code>), sans <code>infected</code> côté client ; même
+CHU partout ; issue selon la gravité ; bruit ; diagnostic du patient zéro non unique ; courbe tracée dans le
+navigateur, suppression de <code>courbe.png</code>.</p>
+<p><strong>Semaine 2</strong> : l'entonnoir, avec le nombre de lignes de chaque table après chaque filtre.</p>
+<p><strong>Semaine 3</strong> : 4 missions guidées dans le vrai terminal, chacune avec une réponse chiffrée.</p>
+<p><strong>Ensuite</strong> : tester avec 2 infirmiers, sur leur téléphone, avant toute diffusion.</p>
+<p><strong>À éviter :</strong> React ou outil de build ; serveur ; tout refaire d'un bloc ; retoucher le gameplay
+avant le générateur ; cacher la solution mieux qu'avec un hash (impossible en statique, inutile pour ce
+public).</p>
+</div>
+</details>
+
+<h2>Relectures croisées</h2>
+<details>
+<summary>Les 5 relectures (A = Exécutant, B = Contradicteur, C = Expansionniste, D = Œil extérieur, E = Premiers principes)</summary>
+<div class="body">
+  <div class="review"><p><strong>Relecteur 1.</strong> Plus solide : E, qui remonte à la cause et propose le seul
+  mécanisme qui règle à la fois la fuite et le message ; B apporte le fait le plus grave (incubation). Angle mort :
+  D met les données en dernier ; C alourdit le chantier. Oubli commun : cadre éthique et réglementaire (secret
+  médical, pseudonymisation, CNIL, entrepôts) ; distinction entre cas index et patient zéro.</p></div>
+  <div class="review"><p><strong>Relecteur 2.</strong> Plus forte : E, seule à rendre « IA » honnête sans
+  ajouter de fonction ; B la complète par une preuve vérifiée. Angle mort : D ; C oublie le budget d'un
+  développeur seul. Oubli commun : secret médical, pseudonymisation, RGPD, entrepôt encadré ; la notion de patient
+  zéro est stigmatisante, mieux vaut viser la détection précoce et la chaîne de transmission.</p></div>
+  <div class="review"><p><strong>Relecteur 3.</strong> Plus forte : E ; B apporte le fait le plus grave. Angle
+  mort : D ; C en fait trop. Oubli commun : 2 ou 3 objectifs vérifiables et le débriefing ; pseudonymisation,
+  confidentialité, CNIL, biais de codage ; 2 Mo de JSON en 4G.</p></div>
+  <div class="review"><p><strong>Relecteur 4.</strong> Plus solide : E, vraie logique de l'apprentissage
+  supervisé, à compléter par B. Angle mort : D ; C alourdit. Oubli commun : cadre légal ; poids de
+  <code>data.json</code> sur le Wi-Fi hospitalier ; aucune mesure de ce que les infirmiers ont retenu.</p></div>
+  <div class="review"><p><strong>Relecteur 5.</strong> Plus solide : E ; B juste derrière. Angle mort : D, qui
+  ferait polir l'interface d'une énigme fausse ; C trop lourd. Oubli commun : le jeu consiste à identifier une
+  personne dans des dossiers médicaux, ce que la recherche s'interdit ; la notion de patient zéro est stigmatisante
+  (Gaëtan Dugas) ; il faut un débriefing qui en parle.</p></div>
+  <p>Texte intégral des relectures : <code>council-transcript-20261023-1600.md</code>.</p>
+</div>
+</details>
+
+<footer>
+  Council lancé le 23/10/2026 à 16 h sur le dépôt <code>PGWWJ1/jeu-patient-zero</code> (commit
+  <code>616004e</code>) : 5 conseillers, 5 relectures anonymes, 1 président. Transcription complète :
+  <code>docs/council/council-transcript-20261023-1600.md</code>.
+</footer>
+</main>
+</body>
+</html>

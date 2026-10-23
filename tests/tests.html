@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Tests Patient Zéro</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #1d1d1f; }
+  .ok { color: #1e6b3e; } .echec { color: #9b2f1c; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1 id="bilan">Tests en cours…</h1>
+<ul id="resultats"></ul>
+<!-- attendu.js est produit par generateur/generer.py : lancer le générateur avant d'ouvrir cette page. -->
+<script src="../donnees.js"></script>
+<script src="attendu.js"></script>
+<script src="../js/recherche.js"></script>
+<script src="../js/enquete.js"></script>
+<script>
+(async function () {
+  'use strict';
+  const R = window.Recherche, E = window.Enquete;
+  let echecs = 0, total = 0;
+
+  function test(nom, condition, detail) {
+    total++;
+    if (!condition) echecs++;
+    const li = document.createElement('li');
+    li.className = condition ? 'ok' : 'echec';
+    li.textContent = (condition ? 'OK ' : 'ÉCHEC ') + nom + (condition || !detail ? '' : ' : ' + detail);
+    document.getElementById('resultats').appendChild(li);
+  }
+
+  function contient(texte, termes, options) {
+    return R.evaluer(R.preparer(texte), [R.compilerCritere(Object.assign({ termes }, options))]);
+  }
+
+  // --- Moteur de recherche --------------------------------------------------------------------------------
+  test('accents et majuscules', contient('Réflexe rotulien ABOLI.', ['reflexe rotulien aboli']));
+  test('mot entier : rouge ne trouve pas rougeole', !contient('Suspicion de rougeole.', ['rouge']));
+  test('préfixe : rouge* trouve rougeole', contient('Suspicion de rougeole.', ['rouge*']));
+  test('pluriel dans les deux sens', contient('Plaques rouges douloureuses.', ['plaque rouge douloureuse'])
+    && contient('ROT aboli.', ['ROT abolis']));
+  test('apostrophe', contient("Pas d'antécédent notable.", ["pas d'antecedent"]));
+  test('trait d\'union', contient('Éruption maculo-papuleuse.', ['maculo papuleuse'])
+    && contient('Éruption maculo papuleuse.', ['maculo-papuleuse']));
+  test('ligature œ', contient('Œdème local.', ['oedeme']));
+  test('un terme ne traverse pas une fin de phrase', !contient('Plaques rouges. Douloureuses.', ['rouges douloureuses']));
+  const decoupe = R.preparer('Fièvre à 40,6 °C. PRD.').mots.map(m => m.phrase + ':' + m.forme).join(' ');
+  test('décimale avec virgule : pas de fin de phrase', decoupe === '0:fievre 0:a 0:40 0:6 0:c 1:prd', decoupe);
+
+  const prd = { termes: ['PRD'], phrase: 'A' };
+  const negation = { termes: ['pas de', 'absence de'], exclure: true, phrase: 'A' };
+  const evaluer = (texte, criteres) => R.evaluer(R.preparer(texte), criteres.map(R.compilerCritere));
+  test('même phrase : signe affirmé gardé', evaluer('Pas de toux. PRD diffuses.', [prd, negation]));
+  test('même phrase : signe nié écarté', !evaluer('Pas de PRD. Toux.', [prd, negation]));
+  test('exclusion globale', !evaluer('PRD diffuses. Pas de toux.', [{ termes: ['PRD'] }, { termes: ['pas de'], exclure: true }]));
+  test('lien sans inclusion : exclusion globale', !evaluer('Toux. Pas de PRD.', [{ termes: ['PRD'], exclure: true, phrase: 'B' }]));
+  test('critère vide ignoré', evaluer('Toux.', [{ termes: ['', '  '] }]));
+
+  const prep = R.preparer('ROT présents. Réflexe rotulien aboli.');
+  const html = R.surligner(prep, [R.compilerCritere({ termes: ['reflexe rotulien aboli'] })], ['#ff0']);
+  test('surlignage exact, accents conservés', html.includes('<mark style="background:#ff0">Réflexe rotulien aboli</mark>'), html);
+  const html2 = R.surligner(R.preparer('Pas de PRD.'), [prd, negation].map(R.compilerCritere), ['#ff0']);
+  test('surlignage des exclusions', html2.includes('<mark class="exclu">Pas de</mark>') && html2.includes('>PRD</mark>'), html2);
+  test('identifiant saisi', E.normaliserId(' p647 ') === 'P0647' && E.normaliserId('P0647') === 'P0647' && E.normaliserId('abc') === null);
+
+  // --- Données générées ------------------------------------------------------------------------------------
+  const A = window.ATTENDU;
+  const base = E.charger(window.DONNEES);
+  const ids = etat => E.entonnoir(base, Object.assign(E.etatVide(), etat)).lignes.map(v => v.id_visite);
+  const memes = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const ecart = (a, b) => `obtenu ${a.length}, attendu ${b.length}`;
+
+  const plaques = { termes: E.SIGNES_PLAQUES };
+  const plaquesAffirmees = [{ termes: E.SIGNES_PLAQUES, phrase: 'A' }, { termes: E.NEGATIONS, exclure: true, phrase: 'A' }];
+  const reflexe = { termes: ['réflexe rotulien aboli', 'absence de réflexe rotulien', 'ROT abolis'] };
+  const requetes = {
+    temperature_40: { temperatureMin: '40' },
+    plaques_forme0: { criteres: [{ termes: ['plaques rouges douloureuses'] }] },
+    plaques_toutes_formes: { criteres: [plaques] },
+    plaques_affirmees: { criteres: plaquesAffirmees },
+    reflexe_aboli: { criteres: [reflexe] },
+    karovia: { criteres: [{ termes: ['Karovia'] }] },
+    trois_signes: { temperatureMin: '40', criteres: [...plaquesAffirmees, reflexe] },
+  };
+  for (const [nom, etat] of Object.entries(requetes)) {
+    const obtenu = ids(etat);
+    test(`requête « ${nom} » = ce que le générateur a écrit`, memes(obtenu, A[nom]), ecart(obtenu, A[nom]));
+  }
+
+  const MISSIONS_ATTENDUES = ['temperature_40', 'plaques_forme0', 'plaques_toutes_formes', 'plaques_affirmees'];
+  E.MISSIONS.forEach((m, i) => {
+    test(`mission ${i + 1} : réponse attendue`, E.reponseMission(base, m) === A[MISSIONS_ATTENDUES[i]].length);
+  });
+
+  const premierPatient = etat => E.entonnoir(base, Object.assign(E.etatVide(), etat)).lignes[0].id_patient;
+  const pz = premierPatient(requetes.trois_signes);
+  test('la première visite avec les trois signes est celle du patient zéro', pz === A.patient_zero, pz);
+  test('le jeu reconnaît le patient zéro', (await E.verifierProposition(base, pz)).statut === 'zero');
+  const bilan = await E.dechiffrerBilan(base, pz);
+  test('le bilan se déchiffre avec la bonne réponse', bilan.startsWith(`## Le patient zéro est ${pz}`), bilan.slice(0, 60));
+
+  const statut = async etat => (await E.verifierProposition(base, premierPatient(etat))).statut;
+  test('piège de la négation : Karovia + plaques sans lien de phrase → non-malade',
+    await statut({ temperatureMin: '40', criteres: [{ termes: ['Karovia'] }, plaques] }) === 'sain');
+  test('piège des signes incomplets : fièvre + plaques sans réflexe → non-malade',
+    await statut({ temperatureMin: '40', criteres: plaquesAffirmees }) === 'sain');
+  test('piège des synonymes : formes complètes seulement → malade contaminé en France',
+    await statut({ temperatureMin: '40', criteres: [{ termes: ['plaques rouges douloureuses'] }, { termes: ['réflexe rotulien aboli'] }] }) === 'malade');
+  test('tous les malades sont reconnus', (await Promise.all(A.malades.map(id => E.verifierProposition(base, id))))
+    .every(r => r.statut === 'malade' || r.id === A.patient_zero));
+  test('identifiant inconnu', (await E.verifierProposition(base, 'P9999')).statut === 'inconnu');
+
+  const semaines = E.courbe(base);
+  test('courbe vide avant T0', semaines.filter(s => s.lundi < base.meta.t0).every(s => s.cas === 0));
+  test('courbe : un cas par malade détecté', semaines.reduce((n, s) => n + s.cas, 0)
+    === new Set(base.visites.filter(v => v.test_nova === 'positif').map(v => v.id_patient)).size);
+  test('en-tête cohérent : un patient, un hôpital', base.patients.every(p =>
+    new Set(base.visites.filter(v => v.id_patient === p.id_patient).map(v => v.hopital)).size <= 1));
+
+  document.getElementById('bilan').textContent = echecs ? `ÉCHEC : ${echecs} sur ${total}` : `OK : ${total} tests`;
+  document.title = echecs ? 'ECHEC' : 'OK';
+})().catch(e => {
+  document.getElementById('bilan').textContent = 'ÉCHEC : ' + e;
+  document.title = 'ECHEC';
+});
+</script>
+</body>
+</html>
