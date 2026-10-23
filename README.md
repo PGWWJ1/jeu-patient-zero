@@ -15,7 +15,8 @@ Le jeu a trois pages :
 
 1. **L'affaire** : la mission, l'histoire, la fiche du virus, la courbe des cas détectés et le schéma des trois
    tables.
-2. **L'enquête** : 4 missions d'entraînement guidées, puis l'enquête libre. Filtres sur la table Visites,
+2. **L'enquête** : 5 missions d'entraînement qui apprennent les outils sur d'autres sujets (chutes, courbatures,
+   douleurs thoraciques), sans piste sur le virus, puis l'enquête libre. Filtres sur la table Visites,
    recherches dans les comptes rendus, entonnoir, onglets Comptes rendus / Visites / Patients, et la case pour
    proposer le patient zéro.
 3. **Le bilan** : l'histoire complète, qui ne se déchiffre qu'avec la bonne réponse, et ce que le joueur a appris.
@@ -47,11 +48,11 @@ solution unique, incubation, leurres, cohérence des tables, forme de la vague. 
 
 ## Tester
 
-Après le générateur, ouvrir `tests/tests.html` dans un navigateur. La page doit afficher « OK : 39 tests ».
+Après le générateur, ouvrir `tests/tests.html` dans un navigateur. La page doit afficher « OK : 43 tests ».
 
 Les tests confrontent le moteur de recherche à ce que le générateur a écrit dans chaque compte rendu. Ils
-vérifient aussi que la solution est unique et que les trois pièges (négation, signes incomplets, synonymes)
-mènent à un message d'erreur clair.
+vérifient aussi que la solution est unique, que les trois pièges (négation, signes incomplets, synonymes)
+mènent à une mauvaise réponse, et qu'aucune mission d'entraînement ne donne de piste sur le virus.
 
 ## Dépôt public
 

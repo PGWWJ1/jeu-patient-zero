@@ -90,6 +90,15 @@ le découpage en phrases est donc sans ambiguïté.
 3. raisonner dans le temps : le test date du 5 mai, mais le virus circulait avant ; il faut remonter
    l'incubation.
 
+## Missions d'entraînement
+
+Les 5 missions apprennent les outils sur des sujets sans rapport avec le virus : filtrer (CHU Lille en avril),
+distinguer visites et patients, chercher un mot (« chute »), regrouper des synonymes (« courbatures » ou
+« myalgies »), écarter une négation dans la même phrase (« douleur thoracique » sans « Pas de douleur
+thoracique »). Elles ne donnent aucune piste : le joueur doit lui-même tirer de la fiche du virus et de
+l'histoire ce qu'il faut chercher. Les phrases « Pas de douleur thoracique » sont tirées à part par le
+générateur, sans modifier le reste des données.
+
 ## Chemin de solution attendu
 
 1. La courbe montre déjà des dizaines de cas dès le 5 mai : l'épidémie a commencé avant le test.
@@ -103,9 +112,11 @@ Réponses du jeu à une proposition :
 | Proposition | Réponse |
 |---|---|
 | Le patient zéro | Victoire, et le bilan raconte l'histoire |
-| Un autre malade | « Il a bien le Nova-virus, mais l'a attrapé en France : remontez le temps » |
-| Un non-malade | « Il n'a pas le Nova-virus : vérifiez les trois signes » |
-| Un identifiant inconnu | « Ce patient n'existe pas » |
+| Un autre malade | « … a bien le Nova-virus, mais ce n'est pas ce patient qui l'a ramené en France » |
+| Un non-malade | « … n'a pas le Nova-virus » |
+| Un identifiant inconnu | « … n'existe pas dans la table Patients » |
+
+Les réponses disent si la proposition est juste, sans indiquer la méthode.
 
 ## Hors champ (décision de Pierre du 23/10/2026)
 

@@ -129,43 +129,56 @@
     return semaines;
   }
 
-  const SIGNES_PLAQUES = ['plaques rouges douloureuses', 'PRD', 'plaques rouges dlr'];
-  const NEGATIONS = ['pas de', 'absence de'];
-
-  // Missions d'entraînement : la réponse attendue est calculée sur les données avec « etat ».
+  // Missions d'entraînement. Elles apprennent les outils sur des sujets sans rapport avec le virus, pour ne
+  // donner aucune piste sur l'enquête. La réponse attendue est calculée sur les données avec « etat » ;
+  // « compte » dit si l'on compte des visites ou des patients.
+  const LILLE_AVRIL = { hopital: 'CHU Lille', du: '1975-04-01', au: '1975-04-30' };
   const MISSIONS = [
     {
-      titre: 'Filtrer une table',
-      consigne: 'Dans les filtres de la table Visites, réglez <strong>Température min</strong> sur <strong>40</strong>. Combien de visites reste-t-il ?',
-      indice: "Le dernier chiffre de l'entonnoir donne le nombre de visites qui passent tous les filtres.",
-      bravo: "Chaque filtre retire des lignes : l'entonnoir montre combien il en reste à chaque étape, pour la table Visites et pour la table Patients.",
-      etat: { temperatureMin: '40' },
+      titre: 'Filtrer la table Visites',
+      consigne: 'Réglez le filtre <strong>Hôpital</strong> sur <strong>CHU Lille</strong> et la période <strong>du 01/04/1975 au 30/04/1975</strong>. Combien de visites reste-t-il ?',
+      indice: "Les filtres sont dans « Filtres sur la table Visites ». Le dernier chiffre de l'entonnoir donne le nombre de visites qui passent tous les filtres.",
+      bravo: "Chaque filtre retire des lignes de la table Visites : l'entonnoir montre combien il en reste à chaque étape.",
+      etat: LILLE_AVRIL,
+      compte: 'visites',
+    },
+    {
+      titre: 'Visites et patients',
+      consigne: 'Gardez les mêmes filtres. Un patient peut venir plusieurs fois aux urgences : à combien de <strong>patients différents</strong> correspondent ces visites ?',
+      indice: "L'entonnoir donne aussi le nombre de patients, et l'onglet Patients les liste.",
+      bravo: 'La table Patients a une ligne par personne, la table Visites une ligne par passage aux urgences. On compte les patients à partir des visites retenues.',
+      etat: LILLE_AVRIL,
+      compte: 'patients',
     },
     {
       titre: 'Chercher dans le texte',
-      consigne: 'Cliquez sur <strong>Tout effacer</strong>, puis ajoutez une recherche qui <strong>doit contenir</strong> le terme <strong>plaques rouges douloureuses</strong>. Combien de visites ?',
-      indice: 'Bouton « Ajouter une recherche », dans la partie Recherche dans les comptes rendus. Vérifiez que la température est bien effacée.',
-      bravo: 'La recherche lit le texte libre des comptes rendus. Les termes trouvés sont surlignés.',
-      etat: { criteres: [{ termes: ['plaques rouges douloureuses'] }] },
+      consigne: 'Cliquez sur <strong>Tout effacer</strong>, puis ajoutez une recherche qui <strong>doit contenir</strong> le mot <strong>chute</strong>. Combien de visites ?',
+      indice: 'Bouton « Ajouter une recherche », dans la partie Recherche dans les comptes rendus. Vérifiez que les filtres de la table Visites sont bien effacés.',
+      bravo: 'La recherche lit le texte libre des comptes rendus. Les mots trouvés sont surlignés : ouvrez quelques comptes rendus pour le voir.',
+      etat: { criteres: [{ termes: ['chute'] }] },
+      compte: 'visites',
     },
     {
       titre: 'Les synonymes',
-      consigne: 'Les médecins abrègent : ils écrivent aussi <strong>PRD</strong> ou <strong>plaques rouges dlr</strong>. Ajoutez ces deux termes à la même recherche avec <strong>+ synonyme</strong>. Combien de visites ?',
-      indice: 'Les trois termes doivent être dans la même recherche : il suffit que l\'un d\'eux soit présent.',
-      bravo: 'Un même signe s\'écrit de plusieurs façons. Oublier un synonyme, c\'est rater des malades.',
-      etat: { criteres: [{ termes: SIGNES_PLAQUES }] },
+      consigne: 'Tout effacer. « Courbatures » et « myalgies » veulent dire la même chose. Cherchez les deux dans <strong>une seule recherche</strong>, avec le bouton <strong>+ synonyme</strong>. Combien de visites ?',
+      indice: "Les deux mots doivent être dans la même recherche : il suffit alors que l'un d'eux soit présent. Deux recherches séparées exigeraient les deux à la fois.",
+      bravo: "Une même idée s'écrit de plusieurs façons. Oublier un synonyme, c'est rater des comptes rendus.",
+      etat: { criteres: [{ termes: ['courbatures', 'myalgies'] }] },
+      compte: 'visites',
     },
     {
       titre: 'Le piège de la négation',
-      consigne: 'Ouvrez quelques comptes rendus : certains disent « Pas de PRD ». Ajoutez une recherche qui <strong>ne doit pas contenir</strong> <strong>pas de</strong> ou <strong>absence de</strong>. Pour les deux recherches, choisissez <strong>Dans la même phrase (lien A)</strong>. Combien de visites ?',
-      indice: 'Sans le lien A, la négation s\'applique à tout le texte : « Pas de voyage récent » ferait disparaître un vrai malade. Liez les deux recherches à la même phrase.',
-      bravo: '« Pas de PRD » contient « PRD ». Chercher dans la même phrase permet d\'écarter les signes niés sans perdre les autres.',
-      etat: { criteres: [{ termes: SIGNES_PLAQUES, phrase: 'A' }, { termes: NEGATIONS, exclure: true, phrase: 'A' }] },
+      consigne: 'Tout effacer. Cherchez <strong>douleur thoracique</strong> et lisez quelques comptes rendus : certains disent « Pas de douleur thoracique ». Ajoutez une deuxième recherche réglée sur <strong>ne doit pas contenir</strong>, avec les termes « pas de » et « absence de ». Puis, pour les deux recherches, choisissez <strong>dans la même phrase (lien A)</strong>. Combien de visites ?',
+      indice: "Sans le lien A, la négation s'applique à tout le texte : un compte rendu qui dit « Douleur thoracique apparue au repos. Pas de dyspnée. » disparaîtrait. Liez les deux recherches à la même phrase.",
+      bravo: "« Pas de douleur thoracique » contient « douleur thoracique ». Chercher dans la même phrase écarte ce qui est nié sans perdre le reste.",
+      etat: { criteres: [{ termes: ['douleur thoracique'], phrase: 'A' }, { termes: ['pas de', 'absence de'], exclure: true, phrase: 'A' }] },
+      compte: 'visites',
     },
   ];
 
   function reponseMission(base, mission) {
-    return entonnoir(base, Object.assign(etatVide(), mission.etat)).lignes.length;
+    const { lignes } = entonnoir(base, Object.assign(etatVide(), mission.etat));
+    return mission.compte === 'patients' ? nombrePatients(lignes) : lignes.length;
   }
 
   // --- Vérification de la réponse ------------------------------------------------------------------------
@@ -204,6 +217,6 @@
 
   global.Enquete = {
     charger, etatVide, etapes, entonnoir, valeursDistinctes, courbe, MISSIONS, reponseMission,
-    verifierProposition, dechiffrerBilan, normaliserId, dateFr, nombreFr, lireNombre, SIGNES_PLAQUES, NEGATIONS,
+    verifierProposition, dechiffrerBilan, normaliserId, dateFr, nombreFr, lireNombre, nombrePatients,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

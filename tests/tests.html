@@ -72,8 +72,11 @@
   const memes = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   const ecart = (a, b) => `obtenu ${a.length}, attendu ${b.length}`;
 
-  const plaques = { termes: E.SIGNES_PLAQUES };
-  const plaquesAffirmees = [{ termes: E.SIGNES_PLAQUES, phrase: 'A' }, { termes: E.NEGATIONS, exclure: true, phrase: 'A' }];
+  // Formes des signes du virus, décrites dans docs/scenario.md. Elles ne figurent volontairement pas dans le jeu.
+  const SIGNES_PLAQUES = ['plaques rouges douloureuses', 'PRD', 'plaques rouges dlr'];
+  const NEGATIONS = ['pas de', 'absence de'];
+  const plaques = { termes: SIGNES_PLAQUES };
+  const plaquesAffirmees = [{ termes: SIGNES_PLAQUES, phrase: 'A' }, { termes: NEGATIONS, exclure: true, phrase: 'A' }];
   const reflexe = { termes: ['réflexe rotulien aboli', 'absence de réflexe rotulien', 'ROT abolis'] };
   const requetes = {
     temperature_40: { temperatureMin: '40' },
@@ -89,10 +92,21 @@
     test(`requête « ${nom} » = ce que le générateur a écrit`, memes(obtenu, A[nom]), ecart(obtenu, A[nom]));
   }
 
-  const MISSIONS_ATTENDUES = ['temperature_40', 'plaques_forme0', 'plaques_toutes_formes', 'plaques_affirmees'];
+  test('autant de missions que de réponses calculées par le générateur', E.MISSIONS.length === A.missions.length);
   E.MISSIONS.forEach((m, i) => {
-    test(`mission ${i + 1} : réponse attendue`, E.reponseMission(base, m) === A[MISSIONS_ATTENDUES[i]].length);
+    const obtenu = E.reponseMission(base, m);
+    test(`mission ${i + 1} : réponse = calcul du générateur`, obtenu === A.missions[i][1], `obtenu ${obtenu}, attendu ${A.missions[i][1]}`);
   });
+  const textesMissions = JSON.stringify(E.MISSIONS).toLowerCase();
+  const indices = ['plaque', 'prd', 'rotulien', 'rot ', 'karovia', 'bordeaux', 'temperature', 'nova', 'fièvre', 'zéro'];
+  test('les missions ne donnent aucune piste sur le virus', indices.every(m => !textesMissions.includes(m)),
+    indices.filter(m => textesMissions.includes(m)).join(', '));
+  const missionNegation = E.MISSIONS[E.MISSIONS.length - 1];
+  const sansLien = { criteres: missionNegation.etat.criteres.map(c => Object.assign({}, c, { phrase: '' })) };
+  const brut = { criteres: missionNegation.etat.criteres.filter(c => !c.exclure) };
+  const avecLien = E.reponseMission(base, missionNegation);
+  test('mission négation : le lien de phrase change le résultat',
+    ids(sansLien).length < avecLien && avecLien < ids(brut).length, `sans lien ${ids(sansLien).length}, avec ${avecLien}, brut ${ids(brut).length}`);
 
   const premierPatient = etat => E.entonnoir(base, Object.assign(E.etatVide(), etat)).lignes[0].id_patient;
   const pz = premierPatient(requetes.trois_signes);

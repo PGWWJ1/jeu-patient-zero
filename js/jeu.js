@@ -26,7 +26,7 @@
   let indexCr = 0;
   let limiteVisites = PAR_PAGE;
   let limitePatients = PAR_PAGE;
-  let mission = Math.min(Number(memoire.lire('pz-mission')) || 0, E.MISSIONS.length);
+  let mission = Math.min(Number(memoire.lire('pz-mission-v2')) || 0, E.MISSIONS.length);
   let trouve = memoire.lire('pz-trouve');
   let minuteur = null;
 
@@ -134,7 +134,7 @@
         <div class="termes">
           ${c.termes.map((t, k) => `${k ? '<span class="ou">ou</span>' : ''}
             <div class="terme">
-              <input type="text" value="${esc(t)}" data-k="${k}" placeholder="${k ? 'synonyme' : 'terme, par exemple PRD'}" aria-label="Terme ${k + 1}" autocomplete="off">
+              <input type="text" value="${esc(t)}" data-k="${k}" placeholder="${k ? 'synonyme' : 'terme, par exemple toux'}" aria-label="Terme ${k + 1}" autocomplete="off">
               ${c.termes.length > 1 ? `<button class="icone" data-action="retirer-terme" data-k="${k}" title="Retirer ce terme" aria-label="Retirer ce terme"><i class="fa-solid fa-minus"></i></button>` : ''}
             </div>`).join('')}
         </div>
@@ -383,7 +383,7 @@
 
   function changerMission(n) {
     mission = n;
-    memoire.ecrire('pz-mission', n);
+    memoire.ecrire('pz-mission-v2', n);
     rendreMission();
   }
 
@@ -395,10 +395,8 @@
         <div class="mission-tete"><span class="etiquette">Entraînement terminé</span>
           <button class="bouton lien" data-mission="revoir">Revoir l'entraînement</button></div>
         <h2>À vous : trouvez le patient zéro</h2>
-        <p>Un malade a <strong>les trois signes ensemble</strong> : fièvre supérieure à 40 °C, plaques rouges
-        douloureuses, réflexe rotulien aboli. Le réflexe aussi s'écrit de plusieurs façons (les médecins abrègent
-        « réflexes ostéotendineux » en « ROT ») : lisez des comptes rendus pour repérer les formes employées.
-        Cherchez ensuite le <strong>premier</strong> malade, celui qui a ramené le virus de l'étranger.</p>`;
+        <p>Vous savez filtrer les tables et chercher dans les comptes rendus. Relisez l'histoire et la fiche du
+        virus, formulez vos hypothèses, puis testez-les avec les outils.</p>`;
       return;
     }
     const m = E.MISSIONS[mission];
@@ -437,13 +435,13 @@
     const retour = $('retour-mission');
     if (donne === attendu) {
       retour.className = 'retour ok';
-      retour.innerHTML = `Bravo, ${attendu} visites. ${esc(m.bravo)}
+      retour.innerHTML = `Bravo, ${attendu} ${m.compte}. ${esc(m.bravo)}
         <div class="actions"><button class="bouton principal" data-mission="suivante">${mission + 1 < E.MISSIONS.length ? 'Mission suivante' : 'Commencer l\'enquête'} <i class="fa-solid fa-arrow-right"></i></button></div>`;
       return;
     }
-    const affiche = resultat.lignes.length;
+    const affiche = m.compte === 'patients' ? E.nombrePatients(resultat.lignes) : resultat.lignes.length;
     retour.className = 'retour ko';
-    retour.textContent = `Ce n'est pas le bon nombre. Votre entonnoir affiche ${affiche} visites : `
+    retour.textContent = `Ce n'est pas le bon nombre. Votre entonnoir affiche ${affiche} ${m.compte} : `
       + (affiche === attendu ? 'c\'est ce chiffre qu\'il faut taper.' : m.indice);
   });
 
@@ -456,8 +454,8 @@
     const messages = {
       format: ['ko', 'Tapez un identifiant de patient, par exemple P0123.'],
       inconnu: ['ko', `${r.id} n'existe pas dans la table Patients.`],
-      sain: ['ko', `${r.id} n'a pas le Nova-virus. Vérifiez les trois signes dans ses comptes rendus : fièvre supérieure à 40 °C, plaques rouges douloureuses, réflexe rotulien aboli.`],
-      malade: ['info', `${r.id} a bien le Nova-virus, mais l'a attrapé en France : quelqu'un a été malade avant. Remontez le temps.`],
+      sain: ['ko', `${r.id} n'a pas le Nova-virus.`],
+      malade: ['info', `${r.id} a bien le Nova-virus, mais ce n'est pas ce patient qui l'a ramené en France.`],
       zero: ['ok', `Bravo ! ${r.id} est bien le patient zéro.`],
     };
     const [classe, texte] = messages[r.statut];

@@ -17,6 +17,7 @@ import hashlib
 import json
 import math
 import random
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
@@ -130,6 +131,10 @@ def fr(t: float) -> str:
     return f"{t:.1f}".replace(".", ",")
 
 
+def duree(n: int) -> str:
+    return f"{n} jour" + ("s" if n > 1 else "")
+
+
 def jours(d: date, n: int) -> date:
     return d + timedelta(days=n)
 
@@ -216,7 +221,7 @@ def visites_malade(rng: random.Random, m: Malade, p: Patient, medecins: list[str
         return []
     t = round(rng.uniform(40.1, 41.3), 1)
     phrases = [rng.choice(["Arrivée aux urgences pour fièvre élevée et douleurs cutanées.",
-                           f"Consulte en urgence pour forte fièvre depuis {(j1 - m.debut).days + 1} jours.",
+                           f"Consulte en urgence pour forte fièvre depuis {duree((j1 - m.debut).days + 1)}.",
                            "Arrivée aux urgences pour état préoccupant.",
                            "Adressé par le médecin traitant pour fièvre et éruption." if p.sexe == "M"
                            else "Adressée par le médecin traitant pour fièvre et éruption."])]
@@ -286,12 +291,12 @@ def visites_patient_zero(p: Patient) -> list[Visite]:
 
 MOTIFS = {
     "grippe": dict(poids=24, temp=(38.2, 40.3), diagnostics=["Syndrome grippal", "Grippe", "Bronchite aiguë"],
-                   ouvertures=["Consulte pour fièvre et courbatures depuis {n} jours.",
-                               "Fièvre, frissons et toux depuis {n} jours."],
+                   ouvertures=["Consulte pour fièvre et courbatures depuis {duree}.",
+                               "Fièvre, frissons et toux depuis {duree}."],
                    signes=["Toux sèche.", "Myalgies diffuses.", "Rhinorrhée.", "Céphalées.", "Asthénie."]),
     "gastro": dict(poids=12, temp=(37.0, 38.8), diagnostics=["Gastro-entérite"],
-                   ouvertures=["Diarrhée et vomissements depuis {n} jours.",
-                               "Douleurs abdominales et diarrhée depuis {n} jours."],
+                   ouvertures=["Diarrhée et vomissements depuis {duree}.",
+                               "Douleurs abdominales et diarrhée depuis {duree}."],
                    signes=["Déshydratation modérée.", "Pas de sang dans les selles.", "Nausées."]),
     "traumatisme": dict(poids=15, temp=(36.3, 37.4),
                         diagnostics=["Entorse de cheville", "Contusion", "Fracture du poignet", "Plaie simple"],
@@ -300,22 +305,22 @@ MOTIFS = {
                                     "Plaie de la main en cuisinant."],
                         signes=["Douleur à la palpation.", "Œdème local.", "Pas de déficit sensitif."]),
     "eruption": dict(poids=7, temp=(37.0, 39.6), diagnostics=[],
-                     ouvertures=["Consulte pour une éruption apparue depuis {n} jours."],
+                     ouvertures=["Consulte pour une éruption apparue depuis {duree}."],
                      signes=["Prurit.", "Pas de lésion des muqueuses."]),
     "zona": dict(poids=2, temp=(36.8, 37.8), diagnostics=["Zona"],
-                 ouvertures=["Douleurs thoraciques à type de brûlure depuis {n} jours."],
+                 ouvertures=["Douleurs thoraciques à type de brûlure depuis {duree}."],
                  signes=["Plaques rouges douloureuses en bande sur le thorax."]),
     "pneumopathie": dict(poids=6, temp=(38.4, 40.2), diagnostics=["Pneumopathie"],
-                         ouvertures=["Toux grasse et essoufflement depuis {n} jours."],
+                         ouvertures=["Toux grasse et essoufflement depuis {duree}."],
                          signes=["Crépitants à l'auscultation.", "Douleur thoracique à la toux."]),
     "urinaire": dict(poids=6, temp=(37.4, 39.6), diagnostics=["Infection urinaire", "Pyélonéphrite"],
-                     ouvertures=["Brûlures urinaires depuis {n} jours."],
+                     ouvertures=["Brûlures urinaires depuis {duree}."],
                      signes=["Douleur lombaire.", "Urines troubles."]),
     "cardio": dict(poids=8, temp=(36.4, 37.4), diagnostics=["Douleur thoracique atypique", "Malaise vagal"],
                    ouvertures=["Douleur thoracique apparue au repos.", "Malaise avec sueurs au domicile."],
                    signes=["Palpitations.", "Pas de dyspnée."]),
     "neuro": dict(poids=4, temp=(36.5, 37.6), diagnostics=["Sciatique", "Polyneuropathie"],
-                  ouvertures=["Faiblesse des jambes depuis {n} jours.",
+                  ouvertures=["Faiblesse des jambes depuis {duree}.",
                               "Douleur lombaire irradiant dans la jambe."],
                   signes=["Paresthésies des pieds."]),
     "divers": dict(poids=16, temp=(36.4, 37.6),
@@ -330,6 +335,9 @@ ERUPTIONS = [("Plaques rouges non douloureuses sur les bras.", "Urticaire"),
              ("Éruption maculo-papuleuse du visage et du tronc.", "Rougeole"),
              ("Vésicules disséminées sur le tronc.", "Varicelle")]
 
+THORAX = re.compile(r"douleurs? thoraciques?", re.IGNORECASE)
+MOTIFS_THORAX_NIE = {"grippe", "gastro", "urinaire", "divers"}
+
 ISSUES = {
     "cardio": (["Retour à domicile", "Hospitalisation en cardiologie"], [70, 30]),
     "pneumopathie": (["Retour à domicile", "Hospitalisation"], [60, 40]),
@@ -338,9 +346,12 @@ ISSUES = {
 }
 
 
-def visite_fond(rng: random.Random, p: Patient, jour: date, medecins: list[str], motif: str,
-                voyage: str | None) -> Visite:
-    """Première visite d'un patient non malade, ou visite de contrôle s'il en a déjà une."""
+def visite_fond(rng: random.Random, rng_entrainement: random.Random, p: Patient, jour: date, medecins: list[str],
+                motif: str, voyage: str | None) -> Visite:
+    """Première visite d'un patient non malade, ou visite de contrôle s'il en a déjà une.
+
+    rng_entrainement tire seulement les phrases qui servent aux missions d'entraînement : les ajouter ou les
+    retirer ne change pas le reste des données."""
     m = MOTIFS[motif]
     marques: set[str] = set()
     n = rng.randint(1, 5)
@@ -354,7 +365,7 @@ def visite_fond(rng: random.Random, p: Patient, jour: date, medecins: list[str],
         diagnostic, issue = p.visites[0].diagnostic, "Retour à domicile"
     else:
         t = round(rng.uniform(*m["temp"]), 1)
-        phrases = [rng.choice(m["ouvertures"]).format(n=n)]
+        phrases = [rng.choice(m["ouvertures"]).format(duree=duree(n))]
         if t >= 38.0:
             phrases.append(f"Fièvre à {fr(t)} °C.")
         diagnostic = rng.choice(m["diagnostics"]) if m["diagnostics"] else ""
@@ -387,12 +398,20 @@ def visite_fond(rng: random.Random, p: Patient, jour: date, medecins: list[str],
             marques.add("karovia")
     elif not controle and t >= 38.5 and rng.random() < 0.3:
         phrases.append("Pas de voyage récent.")
+    # Mission de la négation : « douleur thoracique » est affirmée (cardio, pneumopathie, zona) ou niée.
+    thorax = [ph for ph in phrases if THORAX.search(ph)]
+    if not controle and not thorax and motif in MOTIFS_THORAX_NIE and rng_entrainement.random() < 0.3:
+        phrases.insert(-1 if voyage else len(phrases),
+                       rng_entrainement.choice(["Pas de douleur thoracique.", "Absence de douleur thoracique."]))
+        marques.add("thorax-")
+    elif thorax:
+        marques.add("thorax+")
     fc = rng.randint(60, 95) + (15 if t >= 38.5 else 0)
     return Visite(p, jour, t, rng.randint(105, 150), fc, diagnostic, issue, rng.choice(medecins), phrases,
                   marques)
 
 
-def leurres(rng: random.Random) -> list[Patient]:
+def leurres(rng: random.Random, rng_entrainement: random.Random) -> list[Patient]:
     """Patients non malades placés avant le patient zéro pour piéger les recherches incomplètes."""
     def patient(sexe, age, ville):
         return Patient(sexe, age, ville)
@@ -417,7 +436,8 @@ def leurres(rng: random.Random) -> list[Patient]:
                                    "Plaques rouges dlr sur les jambes.", "Réflexe rotulien aboli."],
                                   {"plaques+2", "reflexe+0", "eruption"})]
     gastro = patient("M", 28, "Paris")
-    gastro.visites = [visite_fond(rng, gastro, date(1975, 3, 6), VILLES["Paris"][1], "gastro", "Karovia")]
+    gastro.visites = [visite_fond(rng, rng_entrainement, gastro, date(1975, 3, 6), VILLES["Paris"][1], "gastro",
+                                  "Karovia")]
     return [paludisme, toxidermie, vascularite, gastro]
 
 
@@ -425,6 +445,7 @@ def leurres(rng: random.Random) -> list[Patient]:
 
 def generer() -> dict:
     rng = random.Random(GRAINE)
+    rng_entrainement = random.Random(GRAINE + 1)
     malades = simuler_epidemie(rng)
     patients: list[Patient] = []
 
@@ -441,7 +462,7 @@ def generer() -> dict:
         if p.visites:
             patients.append(p)
 
-    patients += leurres(rng)
+    patients += leurres(rng, rng_entrainement)
 
     poids_motifs = {k: v["poids"] for k, v in MOTIFS.items()}
     for _ in range(NB_PATIENTS_FOND):
@@ -456,7 +477,7 @@ def generer() -> dict:
         for i in range(nb):
             if jour > FIN:
                 break
-            p.visites.append(visite_fond(rng, p, jour, medecins, motif, voyage if i == 0 else None))
+            p.visites.append(visite_fond(rng, rng_entrainement, p, jour, medecins, motif, voyage if i == 0 else None))
             jour = jours(jour, rng.randint(1, 10))
         patients.append(p)
 
@@ -587,6 +608,20 @@ def bilan(monde: dict, verif: dict) -> str:
     return "\n".join(lignes)
 
 
+def missions_attendues(visites: list[Visite]) -> list[tuple[str, int]]:
+    """Réponses des missions d'entraînement (js/enquete.js), recalculées ici sans le moteur de recherche."""
+    texte = lambda v: " ".join(v.phrases).lower()
+    lille_avril = [v for v in visites if v.patient.ville == "Lille" and date(1975, 4, 1) <= v.jour <= date(1975, 4, 30)]
+    return [
+        ("Visites au CHU Lille en avril 1975", len(lille_avril)),
+        ("Patients différents parmi ces visites", len({v.patient.id for v in lille_avril})),
+        ("Visites dont le compte rendu contient « chute »", sum(1 for v in visites if re.search(r"\bchute\b", texte(v)))),
+        ("Avec « courbatures » ou « myalgies »",
+         sum(1 for v in visites if re.search(r"\b(courbatures?|myalgies?)\b", texte(v)))),
+        ("« Douleur thoracique » sans négation dans la même phrase", sum(1 for v in visites if "thorax+" in v.marques)),
+    ]
+
+
 def table(colonnes: list[str], lignes: list[list]) -> dict:
     return {"colonnes": colonnes, "lignes": lignes}
 
@@ -627,6 +662,7 @@ def ecrire(monde: dict, verif: dict) -> None:
         "patient_zero": pz.id,
         "malades": malades_ids,
     }
+    attendu["missions"] = missions_attendues(visites)
     (RACINE / "tests" / "attendu.js").write_text(
         "window.ATTENDU = " + json.dumps(attendu, ensure_ascii=False) + ";\n", encoding="utf-8")
 
@@ -657,10 +693,9 @@ def ecrire(monde: dict, verif: dict) -> None:
         "",
         "## Réponses des missions d'entraînement",
         "",
-        f"1. Visites à 40 °C ou plus : {len(attendu['temperature_40'])}",
-        f"2. Visites qui contiennent « plaques rouges douloureuses » : {len(attendu['plaques_forme0'])}",
-        f"3. Avec les synonymes « PRD » et « plaques rouges dlr » : {len(attendu['plaques_toutes_formes'])}",
-        f"4. Sans les négations (même phrase) : {len(attendu['plaques_affirmees'])}",
+        "Les missions apprennent les outils sur des sujets sans rapport avec le virus.",
+        "",
+        *(f"{i}. {libelle} : {n}" for i, (libelle, n) in enumerate(attendu["missions"], 1)),
         "",
         "## Chiffres",
         "",
