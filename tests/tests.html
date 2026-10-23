@@ -68,6 +68,7 @@
   // --- Données générées ------------------------------------------------------------------------------------
   const A = window.ATTENDU;
   const base = E.charger(window.DONNEES);
+  await E.preparerVerite(base);
   const ids = etat => E.entonnoir(base, Object.assign(E.etatVide(), etat)).lignes.map(v => v.id_visite);
   const memes = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   const ecart = (a, b) => `obtenu ${a.length}, attendu ${b.length}`;
@@ -114,6 +115,19 @@
   test('le jeu reconnaît le patient zéro', (await E.verifierProposition(base, pz)).statut === 'zero');
   const bilan = await E.dechiffrerBilan(base, pz);
   test('le bilan se déchiffre avec la bonne réponse', bilan.startsWith(`## Le patient zéro est ${pz}`), bilan.slice(0, 60));
+  test('le bilan contient le lexique', bilan.includes('## Ce que vous avez fait'));
+  const vecteur = A.vecteur_animateur;
+  test('mot de passe animateur : le navigateur déchiffre comme le générateur',
+    await E.ouvrirBilanAnimateur(base, vecteur.mot_de_passe, vecteur.code) === '## Le patient zéro est P0000');
+  test('mot de passe animateur faux : bilan fermé', await E.ouvrirBilanAnimateur(base, 'mauvais mot de passe') === null);
+
+  const marches = E.entonnoir(base, Object.assign(E.etatVide(), requetes.trois_signes)).marches;
+  const fin = marches[marches.length - 1];
+  test('sans filtre : sensibilité 100 %, spécificité 0 %', marches[0].sensibilite === 1 && marches[0].specificite === 0);
+  test('les trois signes : sensibilité et spécificité de 100 %', fin.sensibilite === 1 && fin.specificite === 1,
+    `${fin.sensibilite} / ${fin.specificite}`);
+  const fievre = E.entonnoir(base, Object.assign(E.etatVide(), requetes.temperature_40)).marches[1];
+  test('fièvre seule : sensible mais pas spécifique', fievre.sensibilite === 1 && fievre.specificite < 1);
 
   const statut = async etat => (await E.verifierProposition(base, premierPatient(etat))).statut;
   test('piège de la négation : Karovia + plaques sans lien de phrase → non-malade',

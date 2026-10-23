@@ -85,6 +85,10 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
 .table-carte ul { list-style: none; margin: 0; padding: 8px 12px; font-size: .9rem; font-family: ui-monospace, Consolas, monospace; }
 .table-carte li.cle { font-weight: 700; color: var(--bleu-fonce); }
 
+.methode { border-left: 6px solid var(--vert); }
+.methode h2 i { color: var(--vert); margin-right: 4px; }
+.etapes-methode { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+
 /* Page 2 : l'enquête */
 .mission { border-left: 6px solid var(--ambre); background: #fffdf6; }
 .mission.terminee { border-left-color: var(--vert); background: #f7fcf9; }
@@ -110,7 +114,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
 .critere-pied { display: grid; gap: 8px; margin-top: 8px; }
 .critere-pied .bouton { justify-self: start; }
 .critere-pied .lien-phrase { display: flex; flex-direction: column; gap: 2px; font-size: .85rem; font-weight: 600; color: var(--discret); }
-#tout-effacer { margin: -4px 0 16px; }
+.tout-effacer { margin: -4px 0 16px; }
+.tout-effacer.haut { margin: 0 0 8px; }
 
 .entonnoir-aide { margin-bottom: 12px; }
 .entonnoir { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
@@ -122,10 +127,13 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
 .marche-barre { height: 10px; background: var(--fond); border-radius: 5px; overflow: hidden; }
 .marche-barre span { display: block; height: 100%; background: var(--bleu); border-radius: 5px; }
 .marche-nombres { text-align: right; white-space: nowrap; }
+.indicateurs { display: block; font-size: .82rem; font-weight: 500; color: var(--discret); }
+.indicateurs strong { color: var(--texte); }
+.indicateurs .parfait { color: var(--vert); }
 .entonnoir-vide { color: var(--discret); font-size: .9rem; }
 
-.onglets-tables { display: flex; gap: 4px; border-bottom: 2px solid var(--bord); margin-bottom: 12px; overflow-x: auto; }
-.onglets-tables button { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px; padding: 8px 12px;
+.onglets-tables { display: flex; gap: 4px; box-shadow: inset 0 -2px 0 var(--bord); margin-bottom: 12px; overflow-x: auto; overflow-y: hidden; }
+.onglets-tables button { background: none; border: none; border-bottom: 3px solid transparent; padding: 8px 12px;
   font-weight: 600; cursor: pointer; white-space: nowrap; color: var(--discret); }
 .onglets-tables button[aria-selected="true"] { color: var(--bleu); border-bottom-color: var(--bleu); }
 .onglets-tables .compte { font-weight: 500; font-size: .85rem; }
@@ -182,6 +190,7 @@ td.nombre { text-align: right; font-variant-numeric: tabular-nums; }
     width: 100%; margin: 0; padding: 12px 16px; border: none; border-top: 3px solid var(--bleu); border-radius: 10px 10px 0 0;
     background: var(--carte); box-shadow: 0 -4px 12px rgba(0, 0, 0, .08); font-size: .95rem; text-align: left; cursor: pointer; }
   .barre-resultat .aller { color: var(--bleu); font-weight: 700; white-space: nowrap; }
+  .barre-resultat .indicateurs { margin-top: 2px; }
 }
 @media (max-width: 560px) {
   .entete { padding: 8px 12px; }
@@ -198,5 +207,8 @@ td.nombre { text-align: right; font-variant-numeric: tabular-nums; }
   .marche-barre { grid-row: auto; }
   .cr-pied .bouton { margin-left: 0; width: 100%; }
   .onglets-tables button { flex: 1; padding: 8px 4px; font-size: .9rem; }
+  .barre-resultat .indicateurs { white-space: nowrap; }
+  .barre-resultat .aller .texte { display: none; }
+  .barre-resultat .aller { font-size: 1.2rem; }
   .onglets-tables .compte { display: block; }
 }

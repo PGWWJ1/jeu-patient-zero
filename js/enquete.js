@@ -88,13 +88,30 @@
     return new Set(visites.map(v => v.id_patient)).size;
   }
 
-  // Applique les étapes une à une ; chaque ligne de l'entonnoir donne le nombre de lignes restantes par table.
+  /* Sensibilité et spécificité d'une sélection de visites, par rapport aux visites des malades du Nova-virus :
+   * sensibilité = part des visites de malades que la sélection garde ;
+   * spécificité = part des visites de non-malades que la sélection écarte.
+   * Nulles tant que preparerVerite n'a pas tourné. */
+  function indicateurs(base, lignes) {
+    if (!base.verite) return { sensibilite: null, specificite: null };
+    const { malades, sains } = base.verite;
+    const vraisPositifs = lignes.filter(v => v.malade).length;
+    return {
+      sensibilite: vraisPositifs / malades,
+      specificite: (sains - (lignes.length - vraisPositifs)) / sains,
+    };
+  }
+
+  // Applique les étapes une à une ; chaque ligne de l'entonnoir donne le nombre de lignes restantes par table,
+  // avec la sensibilité et la spécificité de la sélection à ce stade.
   function entonnoir(base, etat) {
     let lignes = base.visites;
-    const marches = [{ table: '', libelle: 'Toutes les données', visites: lignes.length, patients: base.patients.length }];
+    const marche = (table, libelle) => Object.assign(
+      { table, libelle, visites: lignes.length, patients: nombrePatients(lignes) }, indicateurs(base, lignes));
+    const marches = [marche('', 'Toutes les données')];
     for (const e of etapes(etat)) {
       lignes = lignes.filter(e.garde);
-      marches.push({ table: e.table, libelle: e.libelle, visites: lignes.length, patients: nombrePatients(lignes) });
+      marches.push(marche(e.table, e.libelle));
     }
     return { lignes, marches };
   }
@@ -204,19 +221,50 @@
     return { statut: malade ? 'malade' : 'sain', id };
   }
 
-  async function dechiffrerBilan(base, id) {
+  // Les malades ne sont livrés que sous forme d'empreintes : on les retrouve en calculant celle de chaque patient.
+  // Sert à la sensibilité et à la spécificité de l'entonnoir.
+  async function preparerVerite(base) {
     const sel = base.verification.sel;
-    const code = Uint8Array.from(atob(base.verification.bilan), c => c.charCodeAt(0));
+    const malades = new Set(base.verification.malades);
+    const empreintes = await Promise.all(base.patients.map(p => sha256(`malade:${sel}:${p.id_patient}`)));
+    base.patients.forEach((p, i) => { p.malade = malades.has(empreintes[i]); });
+    for (const v of base.visites) v.malade = v.patient.malade;
+    const nbMalades = base.visites.filter(v => v.malade).length;
+    base.verite = { malades: nbMalades, sains: base.visites.length - nbMalades };
+  }
+
+  // Inverse de chiffrer() dans generateur/generer.py : flux SHA-256 dérivé de la clé, combiné par OU exclusif.
+  async function dechiffrer(code64, cle) {
+    const code = Uint8Array.from(atob(code64), c => c.charCodeAt(0));
     const sortie = new Uint8Array(code.length);
     for (let bloc = 0; bloc * 32 < code.length; bloc++) {
-      const flux = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`bilan:${sel}:${id}:${bloc}`)));
+      const flux = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${cle}:${bloc}`)));
       for (let i = 0; i < 32 && bloc * 32 + i < code.length; i++) sortie[bloc * 32 + i] = code[bloc * 32 + i] ^ flux[i];
     }
     return new TextDecoder().decode(sortie);
   }
 
+  function dechiffrerBilan(base, id) {
+    return dechiffrer(base.verification.bilan, `bilan:${base.verification.sel}:${id}`);
+  }
+
+  const DEBUT_BILAN = '## Le patient zéro est ';
+
+  // Ouvre le bilan avec le mot de passe animateur ; renvoie null si le mot de passe est faux.
+  async function ouvrirBilanAnimateur(base, motDePasse, code = base.verification.bilan_animateur) {
+    const v = base.verification;
+    const cleBrute = await crypto.subtle.importKey('raw', new TextEncoder().encode(motDePasse), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', hash: 'SHA-256', salt: new TextEncoder().encode(`animateur:${v.sel}`), iterations: v.iterations_animateur },
+      cleBrute, 256);
+    const hex = [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, '0')).join('');
+    const texte = await dechiffrer(code, 'animateur:' + hex);
+    return texte.startsWith(DEBUT_BILAN) ? texte : null;
+  }
+
   global.Enquete = {
     charger, etatVide, etapes, entonnoir, valeursDistinctes, courbe, MISSIONS, reponseMission,
-    verifierProposition, dechiffrerBilan, normaliserId, dateFr, nombreFr, lireNombre, nombrePatients,
+    verifierProposition, preparerVerite, dechiffrerBilan, ouvrirBilanAnimateur, normaliserId, dateFr, nombreFr,
+    lireNombre, nombrePatients,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

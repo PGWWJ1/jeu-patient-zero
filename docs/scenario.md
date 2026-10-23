@@ -90,6 +90,13 @@ le découpage en phrases est donc sans ambiguïté.
 3. raisonner dans le temps : le test date du 5 mai, mais le virus circulait avant ; il faut remonter
    l'incubation.
 
+## Méthode proposée aux joueurs
+
+1. Repérer tous les malades : une sélection dont la sensibilité et la spécificité approchent 100 %. L'entonnoir
+   les affiche à chaque étape, calculées sur les visites (malade = patient atteint du Nova-virus).
+2. Trouver le patient zéro : parmi les malades, ce qui le distingue des autres.
+3. Vérifier ses comptes rendus avant de proposer.
+
 ## Missions d'entraînement
 
 Les 5 missions apprennent les outils sur des sujets sans rapport avec le virus : filtrer (CHU Lille en avril),
@@ -117,6 +124,9 @@ Réponses du jeu à une proposition :
 | Un identifiant inconnu | « … n'existe pas dans la table Patients » |
 
 Les réponses disent si la proposition est juste, sans indiquer la méthode.
+
+Le bilan (histoire et lexique) est chiffré deux fois : avec l'identifiant du patient zéro, et avec le mot de
+passe animateur choisi au lancement du générateur.
 
 ## Hors champ (décision de Pierre du 23/10/2026)
 

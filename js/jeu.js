@@ -194,12 +194,14 @@
     planifier(0);
   });
 
-  $('tout-effacer').addEventListener('click', () => {
+  function toutEffacer() {
     etat = E.etatVide();
     for (const id of Object.keys(CHAMPS)) $(id).value = '';
     rendreCriteres();
     planifier(0);
-  });
+  }
+
+  document.querySelectorAll('.tout-effacer').forEach(b => b.addEventListener('click', toutEffacer));
 
   // --- Calcul et résultats ---------------------------------------------------------------------------------
 
@@ -220,6 +222,18 @@
     return ordre === 'asc' ? resultat.lignes : [...resultat.lignes].reverse();
   }
 
+  // 100 % seulement si la valeur est exacte : 99,6 % ne doit pas passer pour une sélection parfaite.
+  function pourcentage(x) {
+    if (x === 1) return '<strong class="parfait">100 %</strong>';
+    const p = Math.floor(x * 1000) / 10;
+    return `<strong>${String(Number.isInteger(p) ? p : p.toFixed(1)).replace('.', ',')} %</strong>`;
+  }
+
+  function indicateurs(m) {
+    if (m.sensibilite === null) return '';
+    return `<span class="indicateurs">sensibilité ${pourcentage(m.sensibilite)} · spécificité ${pourcentage(m.specificite)}</span>`;
+  }
+
   function rendreEntonnoir() {
     const total = base.visites.length;
     const n = resultat.marches.length;
@@ -227,15 +241,15 @@
       <li class="${i === n - 1 && n > 1 ? 'dernier' : ''}">
         <div>${m.table ? `<span class="pastille${m.table === 'Comptes rendus' ? ' texte' : ''}">${m.table}</span>` : ''}${esc(m.libelle)}</div>
         <div class="marche-barre"><span style="width:${Math.max(0.5, (100 * m.visites) / total)}%"></span></div>
-        <div class="marche-nombres"><strong>${m.visites}</strong> visites · <strong>${m.patients}</strong> patients</div>
+        <div class="marche-nombres"><strong>${m.visites}</strong> visites · <strong>${m.patients}</strong> patients${indicateurs(m)}</div>
       </li>`).join('');
     if (n === 1) {
       html += '<li class="entonnoir-vide">Ajoutez un filtre ou une recherche : chaque étape apparaîtra ici avec le nombre de lignes qui restent.</li>';
     }
     $('entonnoir').innerHTML = html;
     const fin = resultat.marches[n - 1];
-    $('barre-resultat').innerHTML = `<span><strong>${fin.visites}</strong> visites · <strong>${fin.patients}</strong> patients</span>`
-      + '<span class="aller">Voir les résultats <i class="fa-solid fa-arrow-down"></i></span>';
+    $('barre-resultat').innerHTML = `<span><strong>${fin.visites}</strong> visites · <strong>${fin.patients}</strong> patients${indicateurs(fin)}</span>`
+      + '<span class="aller" aria-label="Voir les résultats"><span class="texte">Voir les résultats </span><i class="fa-solid fa-arrow-down"></i></span>';
   }
 
   $('barre-resultat').addEventListener('click', () => $('resultats').scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -396,7 +410,8 @@
           <button class="bouton lien" data-mission="revoir">Revoir l'entraînement</button></div>
         <h2>À vous : trouvez le patient zéro</h2>
         <p>Vous savez filtrer les tables et chercher dans les comptes rendus. Relisez l'histoire et la fiche du
-        virus, formulez vos hypothèses, puis testez-les avec les outils.</p>`;
+        virus, puis suivez la méthode :</p>
+        <ol class="etapes-methode">${$('methode').innerHTML}</ol>`;
       return;
     }
     const m = E.MISSIONS[mission];
@@ -486,26 +501,51 @@
     return html + (liste ? '</ul>' : '');
   }
 
+  // Le bilan est chiffré : il s'ouvre avec la bonne réponse, ou avec le mot de passe de l'animateur (gardé en
+  // mémoire seulement jusqu'au rechargement de la page).
+  let bilanAnimateur = null;
+
   async function rendreBilan() {
     const bloc = $('bilan-histoire');
     if (trouve && (await E.verifierProposition(base, trouve)).statut !== 'zero') {
       trouve = null;
       memoire.ecrire('pz-trouve', null);
     }
-    if (!trouve) {
-      bloc.innerHTML = `<h2>Le fin mot de l'histoire</h2>
-        <p>Trouvez d'abord le patient zéro : son histoire s'affichera ici.</p>
+    $('acces-animateur').hidden = Boolean(trouve || bilanAnimateur);
+    if (trouve) {
+      bloc.innerHTML = '<span class="etiquette succes">Enquête résolue</span>' + versHtml(await E.dechiffrerBilan(base, trouve));
+    } else if (bilanAnimateur) {
+      bloc.innerHTML = '<span class="etiquette">Accès animateur</span>' + versHtml(bilanAnimateur);
+    } else {
+      bloc.innerHTML = `<h2><i class="fa-solid fa-lock"></i> Le bilan est verrouillé</h2>
+        <p>Il s'ouvre quand vous avez trouvé le patient zéro.</p>
         <button class="bouton secondaire" data-aller="enquete"><i class="fa-solid fa-arrow-left"></i> Retour à l'enquête</button>`;
+    }
+  }
+
+  $('form-animateur').addEventListener('submit', async e => {
+    e.preventDefault();
+    const retour = $('animateur-retour');
+    retour.className = 'retour info';
+    retour.textContent = 'Vérification…';
+    const texte = await E.ouvrirBilanAnimateur(base, $('mot-de-passe').value);
+    $('mot-de-passe').value = '';
+    if (!texte) {
+      retour.className = 'retour ko';
+      retour.textContent = 'Mot de passe incorrect.';
       return;
     }
-    bloc.innerHTML = '<span class="etiquette succes">Enquête résolue</span>' + versHtml(await E.dechiffrerBilan(base, trouve));
-  }
+    retour.textContent = '';
+    bilanAnimateur = texte;
+    rendreBilan();
+  });
 
   $('rejouer').addEventListener('click', () => {
     trouve = null;
+    bilanAnimateur = null;
     memoire.ecrire('pz-trouve', null);
     changerMission(0);
-    $('tout-effacer').click();
+    toutEffacer();
     $('proposition').value = '';
     $('proposition-retour').textContent = '';
     allerA('affaire');
@@ -521,4 +561,6 @@
   calculer();
   const pageDemandee = location.hash.slice(1);
   if (['enquete', 'bilan'].includes(pageDemandee)) allerA(pageDemandee);
+  // La sensibilité et la spécificité s'affichent dès que les malades sont retrouvés (calcul d'empreintes).
+  E.preparerVerite(base).then(calculer).catch(() => { /* navigateur sans crypto.subtle : pas d'indicateurs */ });
 })();

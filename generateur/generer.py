@@ -2,6 +2,9 @@
 
     python generateur/generer.py
 
+Demande le mot de passe animateur, qui ouvre le bilan sans la bonne réponse (saisie masquée, ou variable
+d'environnement MOT_DE_PASSE_ANIMATEUR). Il n'est enregistré nulle part : le bilan est seulement chiffré avec.
+
 Écrit :
 - donnees.js : les trois tables, chargées par index.html ;
 - docs/solution.md : la solution, pour l'animateur ;
@@ -13,9 +16,11 @@ Le tirage est fixé par GRAINE : relancer le script redonne exactement les même
 from __future__ import annotations
 
 import base64
+import getpass
 import hashlib
 import json
 import math
+import os
 import random
 import re
 import sys
@@ -571,11 +576,58 @@ def empreinte(texte: str) -> str:
     return hashlib.sha256(texte.encode("utf-8")).hexdigest()
 
 
-def chiffrer(texte: str, cle: str) -> str:
-    """Masque le bilan par un flux SHA-256 dérivé de l'identifiant : il ne s'affiche qu'avec la bonne réponse."""
-    donnees = texte.encode("utf-8")
+def masquer(donnees: bytes, cle: str) -> bytes:
     flux = b"".join(hashlib.sha256(f"{cle}:{i}".encode()).digest() for i in range(len(donnees) // 32 + 1))
-    return base64.b64encode(bytes(a ^ b for a, b in zip(donnees, flux))).decode()
+    return bytes(a ^ b for a, b in zip(donnees, flux))
+
+
+def chiffrer(texte: str, cle: str) -> str:
+    """Masque le bilan par un flux SHA-256 dérivé d'une clé : il ne s'affiche qu'avec la bonne réponse ou le mot
+    de passe animateur. js/enquete.js fait l'opération inverse."""
+    return base64.b64encode(masquer(texte.encode("utf-8"), cle)).decode()
+
+
+def dechiffrer(code: str, cle: str) -> str:
+    return masquer(base64.b64decode(code), cle).decode("utf-8")
+
+
+ITERATIONS_ANIMATEUR = 200_000
+
+
+def cle_animateur(mot_de_passe: str) -> str:
+    """Clé du bilan pour l'animateur. PBKDF2 ralentit les essais au hasard sur le fichier publié."""
+    derivee = hashlib.pbkdf2_hmac("sha256", mot_de_passe.encode("utf-8"), f"animateur:{SEL}".encode(),
+                                  ITERATIONS_ANIMATEUR)
+    return "animateur:" + derivee.hex()
+
+
+def lire_mot_de_passe() -> str:
+    if mdp := os.environ.get("MOT_DE_PASSE_ANIMATEUR"):
+        return mdp
+    if not sys.stdin.isatty():
+        sys.exit("Mot de passe animateur manquant : lancez le script dans un terminal, "
+                 "ou définissez la variable MOT_DE_PASSE_ANIMATEUR.")
+    mdp = getpass.getpass("Mot de passe animateur (ouvre le bilan sans la bonne réponse) : ")
+    if len(mdp) < 6:
+        sys.exit("Mot de passe trop court : 6 caractères au moins.")
+    if getpass.getpass("Confirmez le mot de passe : ") != mdp:
+        sys.exit("Les deux saisies diffèrent.")
+    return mdp
+
+
+LEXIQUE = """## Ce que vous avez fait
+
+- **Filtrer une table.** Chaque filtre sur la table Visites retire des lignes. L'entonnoir montre combien il en reste à chaque étape.
+- **Relier des tables.** Une visite appartient à un patient et a un compte rendu. On compte les patients à partir des visites retenues.
+- **Mesurer sa sélection.** La sensibilité dit quelle part des malades la sélection garde, la spécificité quelle part des non-malades elle écarte. On les pousse toutes deux vers 100 % avant de chercher le patient zéro.
+- **Chercher dans du texte libre.** Un signe s'écrit de plusieurs façons (« PRD », « plaques rouges dlr », « ROT abolis ») : il faut prévoir les synonymes et les abréviations.
+- **Écarter les négations.** « Pas de PRD » contient « PRD ». Chercher dans la même phrase permet d'écarter les signes niés sans perdre les autres.
+- **Croiser les critères.** Un seul signe ne suffit pas : un paludisme donne une forte fièvre, une toxidermie des plaques douloureuses.
+- **Remonter le temps.** Le test date du 5 mai, mais le virus circulait depuis mars. L'incubation de 2 à 4 semaines relie chaque malade à celui qui l'a contaminé."""
+
+
+def bilan_complet(monde: dict, verif: dict) -> str:
+    return bilan(monde, verif) + "\n\n" + LEXIQUE
 
 
 def bilan(monde: dict, verif: dict) -> str:
@@ -626,7 +678,7 @@ def table(colonnes: list[str], lignes: list[list]) -> dict:
     return {"colonnes": colonnes, "lignes": lignes}
 
 
-def ecrire(monde: dict, verif: dict) -> None:
+def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
     patients, visites, pz = monde["patients"], monde["visites"], verif["pz"]
     malades_ids = sorted(m.patient.id for m in verif["visibles"])
     donnees = {
@@ -642,9 +694,12 @@ def ecrire(monde: dict, verif: dict) -> None:
             "sel": SEL,
             "zero": empreinte(f"zero:{SEL}:{pz.id}"),
             "malades": sorted(empreinte(f"malade:{SEL}:{i}") for i in malades_ids),
-            "bilan": chiffrer(bilan(monde, verif), f"bilan:{SEL}:{pz.id}"),
+            "bilan": chiffrer(bilan_complet(monde, verif), f"bilan:{SEL}:{pz.id}"),
+            "bilan_animateur": chiffrer(bilan_complet(monde, verif), cle_animateur(mot_de_passe)),
+            "iterations_animateur": ITERATIONS_ANIMATEUR,
         },
     }
+    assert dechiffrer(donnees["verification"]["bilan_animateur"], cle_animateur(mot_de_passe)) == bilan_complet(monde, verif)
     texte = "window.DONNEES = " + json.dumps(donnees, ensure_ascii=False, separators=(",", ":")) + ";\n"
     (RACINE / "donnees.js").write_text(texte, encoding="utf-8")
 
@@ -663,6 +718,10 @@ def ecrire(monde: dict, verif: dict) -> None:
         "malades": malades_ids,
     }
     attendu["missions"] = missions_attendues(visites)
+    # Vecteur de test du chiffrement par mot de passe : vérifie que le navigateur déchiffre comme Python, sans
+    # écrire le vrai mot de passe nulle part.
+    attendu["vecteur_animateur"] = {"mot_de_passe": "vecteur de test",
+                                    "code": chiffrer("## Le patient zéro est P0000", cle_animateur("vecteur de test"))}
     (RACINE / "tests" / "attendu.js").write_text(
         "window.ATTENDU = " + json.dumps(attendu, ensure_ascii=False) + ";\n", encoding="utf-8")
 
@@ -674,6 +733,9 @@ def ecrire(monde: dict, verif: dict) -> None:
         "# Solution du jeu Patient Zéro",
         "",
         f"Généré par `generateur/generer.py` (graine {GRAINE}). Ne pas versionner : le dépôt est public.",
+        "",
+        "Le bilan du jeu s'ouvre avec la bonne réponse, ou avec le mot de passe animateur saisi au lancement du "
+        "générateur (il n'est enregistré nulle part).",
         "",
         bilan(monde, verif),
         "",
@@ -709,9 +771,10 @@ def ecrire(monde: dict, verif: dict) -> None:
 
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
+    mot_de_passe = lire_mot_de_passe()
     monde = generer()
     verif = verifier(monde)
-    ecrire(monde, verif)
+    ecrire(monde, verif, mot_de_passe)
     taille = (RACINE / "donnees.js").stat().st_size
     print(f"{len(monde['patients'])} patients, {len(monde['visites'])} visites, {len(verif['visibles'])} malades ; "
           f"patient zéro {verif['pz'].id} ; donnees.js {taille / 1024:.0f} Ko")

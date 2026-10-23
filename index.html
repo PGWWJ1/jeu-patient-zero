@@ -59,6 +59,18 @@
     </div>
   </div>
 
+  <div class="carte methode">
+    <h2><i class="fa-solid fa-list-check"></i> La méthode</h2>
+    <ol class="etapes-methode" id="methode">
+      <li><strong>Repérer tous les malades.</strong> Construisez une sélection qui garde toutes les visites de malades
+      du Nova-virus et écarte les autres. Dans l'entonnoir, poussez la sensibilité et la spécificité le plus près
+      possible de 100 %.</li>
+      <li><strong>Trouver le patient zéro.</strong> Parmi les malades, cherchez ce qui le distingue des autres.</li>
+      <li><strong>Vérifier avant de proposer.</strong> Lisez ses comptes rendus : tout doit concorder avec
+      l'histoire.</li>
+    </ol>
+  </div>
+
   <div class="carte">
     <h2>Les cas détectés par le test</h2>
     <div id="courbe" class="courbe"></div>
@@ -97,6 +109,7 @@
 
   <div class="enquete-grille">
     <aside>
+      <button class="bouton lien tout-effacer haut" type="button"><i class="fa-solid fa-eraser"></i> Tout effacer</button>
       <details class="carte repliable" open>
         <summary><i class="fa-solid fa-table"></i> Filtres sur la table Visites</summary>
         <div class="champs">
@@ -118,7 +131,7 @@
         <button class="bouton secondaire" id="ajouter-critere"><i class="fa-solid fa-plus"></i> Ajouter une recherche</button>
       </details>
 
-      <button class="bouton lien" id="tout-effacer"><i class="fa-solid fa-eraser"></i> Tout effacer</button>
+      <button class="bouton lien tout-effacer" type="button"><i class="fa-solid fa-eraser"></i> Tout effacer</button>
     </aside>
 
     <div>
@@ -126,6 +139,9 @@
         <h2>Entonnoir</h2>
         <p class="discret entonnoir-aide">Nombre de lignes qui restent après chaque filtre. Une visite a un seul
         compte rendu : les tables Visites et Comptes rendus gardent le même nombre de lignes.</p>
+        <p class="discret entonnoir-aide"><strong>Sensibilité</strong> : part des visites de malades du Nova-virus
+        que votre sélection garde. <strong>Spécificité</strong> : part des visites de non-malades qu'elle écarte.
+        Une sélection parfaite atteint 100 % et 100 %.</p>
         <ol class="entonnoir" id="entonnoir"></ol>
       </section>
 
@@ -164,23 +180,14 @@
 <!-- Page 3 : le bilan -->
 <section id="page-bilan" class="page">
   <div class="carte histoire" id="bilan-histoire"></div>
-  <div class="carte">
-    <h2>Ce que vous avez fait</h2>
-    <ul class="lexique">
-      <li><strong>Filtrer une table.</strong> Chaque filtre sur la table Visites retire des lignes. L'entonnoir montre
-      combien il en reste à chaque étape.</li>
-      <li><strong>Relier des tables.</strong> Une visite appartient à un patient et a un compte rendu. On compte les
-      patients à partir des visites retenues.</li>
-      <li><strong>Chercher dans du texte libre.</strong> Un signe s'écrit de plusieurs façons (« PRD », « plaques
-      rouges dlr », « ROT abolis ») : il faut prévoir les synonymes et les abréviations.</li>
-      <li><strong>Écarter les négations.</strong> « Pas de PRD » contient « PRD ». Chercher dans la même phrase
-      permet d'écarter les signes niés sans perdre les autres.</li>
-      <li><strong>Croiser les critères.</strong> Un seul signe ne suffit pas : un paludisme donne une forte fièvre,
-      une toxidermie des plaques douloureuses.</li>
-      <li><strong>Remonter le temps.</strong> Le test date du 5 mai, mais le virus circulait depuis mars.
-      L'incubation de 2 à 4 semaines relie chaque malade à celui qui l'a contaminé.</li>
-    </ul>
-  </div>
+  <details class="carte repliable" id="acces-animateur">
+    <summary><i class="fa-solid fa-key"></i> Accès animateur</summary>
+    <form class="ligne" id="form-animateur">
+      <input type="password" id="mot-de-passe" autocomplete="off" aria-label="Mot de passe animateur" placeholder="Mot de passe">
+      <button class="bouton principal" type="submit">Ouvrir le bilan</button>
+    </form>
+    <div id="animateur-retour" class="retour" aria-live="polite"></div>
+  </details>
   <div class="actions">
     <button class="bouton secondaire" id="rejouer"><i class="fa-solid fa-rotate-left"></i> Rejouer depuis le début</button>
   </div>

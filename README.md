@@ -13,13 +13,15 @@ négations) et suit dans un entonnoir le nombre de lignes qui restent après cha
 
 Le jeu a trois pages :
 
-1. **L'affaire** : la mission, l'histoire, la fiche du virus, la courbe des cas détectés et le schéma des trois
-   tables.
+1. **L'affaire** : la mission, l'histoire, la fiche du virus, la méthode en trois étapes, la courbe des cas
+   détectés et le schéma des trois tables.
 2. **L'enquête** : 5 missions d'entraînement qui apprennent les outils sur d'autres sujets (chutes, courbatures,
    douleurs thoraciques), sans piste sur le virus, puis l'enquête libre. Filtres sur la table Visites,
-   recherches dans les comptes rendus, entonnoir, onglets Comptes rendus / Visites / Patients, et la case pour
+   recherches dans les comptes rendus, entonnoir avec la sensibilité et la spécificité de la sélection à chaque
+   étape (par rapport aux visites des malades), onglets Comptes rendus / Visites / Patients, et la case pour
    proposer le patient zéro.
-3. **Le bilan** : l'histoire complète, qui ne se déchiffre qu'avec la bonne réponse, et ce que le joueur a appris.
+3. **Le bilan** : l'histoire complète et ce que le joueur a appris. Il est chiffré : il s'ouvre avec la bonne
+   réponse, ou avec le mot de passe animateur (« Accès animateur »).
 
 ## Fichiers
 
@@ -42,13 +44,16 @@ Le scénario fait foi : modifier d'abord `docs/scenario.md`, puis le générateu
 python generateur/generer.py
 ```
 
+Le script demande le mot de passe animateur (saisie masquée, deux fois). Il n'est enregistré nulle part : il
+sert seulement à chiffrer le bilan dans `donnees.js`. Pour changer de mot de passe, relancer le générateur.
+
 Le générateur est déterministe (graine fixe) et s'arrête avec un message si le scénario n'est pas respecté :
 solution unique, incubation, leurres, cohérence des tables, forme de la vague. Il écrit aussi
 `docs/solution.md` (la solution et les réponses des missions, pour l'animateur) et `tests/attendu.js`.
 
 ## Tester
 
-Après le générateur, ouvrir `tests/tests.html` dans un navigateur. La page doit afficher « OK : 43 tests ».
+Après le générateur, ouvrir `tests/tests.html` dans un navigateur. La page doit afficher « OK : 49 tests ».
 
 Les tests confrontent le moteur de recherche à ce que le générateur a écrit dans chaque compte rendu. Ils
 vérifient aussi que la solution est unique, que les trois pièges (négation, signes incomplets, synonymes)
