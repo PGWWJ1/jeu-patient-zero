@@ -129,6 +129,9 @@
   test('sans filtre : sensibilité 100 %, spécificité 0 %', marches[0].sensibilite === 1 && marches[0].specificite === 0);
   test('les trois signes : sensibilité et spécificité de 100 %', fin.sensibilite === 1 && fin.specificite === 1,
     `${fin.sensibilite} / ${fin.specificite}`);
+  test('entonnoir : chaque étape écarte exactement les visites qu\'elle perd', marches[0].ecartees.length === 0
+    && marches.slice(1).every((m, k) => m.ecartees.length === marches[k].visites - m.visites),
+    marches.map(m => `${m.visites} (−${m.ecartees.length})`).join(' → '));
   const fievre = E.entonnoir(base, Object.assign(E.etatVide(), requetes.temperature_40)).marches[1];
   test('fièvre seule : sensible mais pas spécifique', fievre.sensibilite === 1 && fievre.specificite < 1);
   const deuxSignes = {
@@ -141,6 +144,10 @@
     test(`deux signes (${nom}) : tous les malades, et des non-malades`, m.sensibilite === 1 && m.specificite < 1,
       `${m.sensibilite} / ${m.specificite}`);
   }
+  const sansReflexe = ids(deuxSignes['fièvre et plaques']).filter(id => !A.trois_signes.includes(id));
+  const ecarteesReflexe = fin.ecartees.map(v => v.id_visite);
+  test('non sélectionnés à la dernière étape : les visites avec fièvre et plaques, sans le réflexe',
+    sansReflexe.length > 0 && memes(ecarteesReflexe, sansReflexe), ecart(ecarteesReflexe, sansReflexe));
   const positif = E.entonnoir(base, Object.assign(E.etatVide(), { test: 'positif' })).marches[1];
   test('test positif : spécifique, mais des malades n\'ont pas eu le test', positif.specificite === 1 && positif.sensibilite < 1,
     `${positif.sensibilite} / ${positif.specificite}`);

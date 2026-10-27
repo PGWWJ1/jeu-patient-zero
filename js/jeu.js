@@ -4,6 +4,12 @@
   const R = window.Recherche;
   const E = window.Enquete;
   const COULEURS = ['#fde68a', '#bfdbfe', '#bbf7d0', '#fbcfe8', '#ddd6fe', '#fed7aa'];
+  // Couleurs des étapes de l'entonnoir, [foncée, claire] : la foncée pour le numéro et la barre, la claire pour le
+  // fond de l'onglet des comptes rendus que l'étape n'a pas sélectionnés.
+  const COULEURS_ETAPES = [
+    ['#6d28d9', '#ede9fe'], ['#0f766e', '#ccfbf1'], ['#c2410c', '#ffedd5'],
+    ['#be185d', '#fce7f3'], ['#1d4ed8', '#dbeafe'], ['#4d7c0f', '#ecfccb'],
+  ];
   const PAR_PAGE = 50;
   const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
@@ -19,16 +25,16 @@
   const esc = R.echapper;
   const base = E.charger(window.DONNEES);
 
-  let etat = E.etatVide();
-  let resultat = E.entonnoir(base, etat);
-  let vue = 'cr';
+  let etat = E.etatVide();      // les filtres tels que le joueur les saisit
+  let applique = E.etatVide();  // les filtres appliqués : ceux de l'entonnoir et des résultats
+  let resultat = E.entonnoir(base, applique);
+  let vue = 'cr';               // onglet affiché : cr, ecartes-<numéro de l'étape>, visites ou patients
   let ordre = 'asc';
-  let indexCr = 0;
+  let positions = {};           // rang du compte rendu affiché, par onglet
   let limiteVisites = PAR_PAGE;
   let limitePatients = PAR_PAGE;
   let mission = Math.min(Number(memoire.lire('pz-mission-v2')) || 0, E.MISSIONS.length);
   let trouve = memoire.lire('pz-trouve');
-  let minuteur = null;
 
   // --- Pages -----------------------------------------------------------------------------------------------
 
@@ -110,8 +116,9 @@
       $(id).max = base.meta.fin;
     }
     for (const [id, cle] of Object.entries(CHAMPS)) {
-      $(id).addEventListener('input', () => { etat[cle] = $(id).value; planifier(); });
-      $(id).addEventListener('change', () => { etat[cle] = $(id).value; planifier(0); });
+      for (const evenement of ['input', 'change']) {
+        $(id).addEventListener(evenement, () => { etat[cle] = $(id).value; signalerModifications(); });
+      }
     }
   }
 
@@ -129,17 +136,17 @@
             <option value="">doit contenir</option>
             <option value="1"${c.exclure ? ' selected' : ''}>ne doit pas contenir</option>
           </select>
-          <button class="icone" data-action="retirer-critere" title="Retirer cette recherche" aria-label="Retirer cette recherche"><i class="fa-solid fa-xmark"></i></button>
+          <button type="button" class="icone" data-action="retirer-critere" title="Retirer cette recherche" aria-label="Retirer cette recherche"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="termes">
           ${c.termes.map((t, k) => `${k ? '<span class="ou">ou</span>' : ''}
             <div class="terme">
               <input type="text" value="${esc(t)}" data-k="${k}" placeholder="${k ? 'synonyme' : 'terme, par exemple toux'}" aria-label="Terme ${k + 1}" autocomplete="off">
-              ${c.termes.length > 1 ? `<button class="icone" data-action="retirer-terme" data-k="${k}" title="Retirer ce terme" aria-label="Retirer ce terme"><i class="fa-solid fa-minus"></i></button>` : ''}
+              ${c.termes.length > 1 ? `<button type="button" class="icone" data-action="retirer-terme" data-k="${k}" title="Retirer ce terme" aria-label="Retirer ce terme"><i class="fa-solid fa-minus"></i></button>` : ''}
             </div>`).join('')}
         </div>
         <div class="critere-pied">
-          <button class="bouton petit" data-action="ajouter-terme"><i class="fa-solid fa-plus"></i> synonyme</button>
+          <button type="button" class="bouton petit" data-action="ajouter-terme"><i class="fa-solid fa-plus"></i> synonyme</button>
           <label class="lien-phrase">Où chercher ?
             <select data-champ="phrase">
               <option value="">n'importe où dans le texte</option>
@@ -168,7 +175,7 @@
     const bloc = e.target.closest('.critere');
     if (!bloc || e.target.dataset.k === undefined) return;
     etat.criteres[bloc.dataset.i].termes[e.target.dataset.k] = e.target.value;
-    planifier();
+    signalerModifications();
   });
 
   $('criteres').addEventListener('change', e => {
@@ -178,7 +185,7 @@
     if (e.target.dataset.champ === 'exclure') c.exclure = e.target.value === '1';
     else c.phrase = e.target.value;
     rendreCriteres();
-    planifier(0);
+    signalerModifications();
   });
 
   $('criteres').addEventListener('click', e => {
@@ -191,35 +198,56 @@
     if (bouton.dataset.action === 'ajouter-terme') c.termes.push('');
     rendreCriteres();
     if (bouton.dataset.action === 'ajouter-terme') focaliser(i, c.termes.length - 1);
-    planifier(0);
+    signalerModifications();
   });
 
+  // Effacer est une remise à zéro : elle s'applique tout de suite.
   function toutEffacer() {
     etat = E.etatVide();
     for (const id of Object.keys(CHAMPS)) $(id).value = '';
     rendreCriteres();
-    planifier(0);
+    appliquer();
   }
 
   document.querySelectorAll('.tout-effacer').forEach(b => b.addEventListener('click', toutEffacer));
 
   // --- Calcul et résultats ---------------------------------------------------------------------------------
 
-  function planifier(delai = 200) {
-    clearTimeout(minuteur);
-    minuteur = setTimeout(calculer, delai);
+  // Les filtres ne s'appliquent qu'avec le bouton « Appliquer les filtres », ou la touche Entrée dans un champ.
+  $('form-filtres').addEventListener('submit', e => { e.preventDefault(); appliquer(); });
+
+  function appliquer() {
+    applique = JSON.parse(JSON.stringify(etat));
+    positions = {};
+    calculer();
   }
 
   function calculer() {
-    resultat = E.entonnoir(base, etat);
-    indexCr = Math.min(indexCr, Math.max(0, resultat.lignes.length - 1));
+    resultat = E.entonnoir(base, applique);
     limiteVisites = limitePatients = PAR_PAGE;
     rendreEntonnoir();
     rendreResultats();
+    signalerModifications();
   }
 
-  function lignesOrdonnees() {
-    return ordre === 'asc' ? resultat.lignes : [...resultat.lignes].reverse();
+  // Deux saisies qui donnent les mêmes étapes donnent le même entonnoir : seules les étapes comptent.
+  const signature = e => JSON.stringify(E.etapes(e).map(x => x.libelle));
+
+  function modifie() {
+    return signature(etat) !== signature(applique);
+  }
+
+  function signalerModifications() {
+    const attente = modifie();
+    $('etat-filtres').textContent = attente ? 'Filtres modifiés : appliquez-les pour mettre à jour les résultats.' : '';
+    $('appliquer').classList.toggle('attente', attente);
+    $('attente-filtres').hidden = !attente;
+    $('entonnoir').classList.toggle('perime', attente);
+    rendreBarre(attente);
+  }
+
+  function ordonner(lignes) {
+    return ordre === 'asc' ? lignes : [...lignes].reverse();
   }
 
   // 100 % seulement si la valeur est exacte : 99,6 % ne doit pas passer pour une sélection parfaite.
@@ -234,45 +262,103 @@
     return `<span class="indicateurs">sensibilité ${pourcentage(m.sensibilite)} · spécificité ${pourcentage(m.specificite)}</span>`;
   }
 
+  // Variables CSS de l'étape k de l'entonnoir (k ≥ 1) : sa couleur foncée et sa couleur claire.
+  function styleEtape(k) {
+    const [foncee, claire] = COULEURS_ETAPES[(k - 1) % COULEURS_ETAPES.length];
+    return `--etape:${foncee};--etape-claire:${claire}`;
+  }
+
   function rendreEntonnoir() {
     const total = base.visites.length;
     const n = resultat.marches.length;
-    let html = resultat.marches.map((m, i) => `
-      <li class="${i === n - 1 && n > 1 ? 'dernier' : ''}">
-        <div>${m.table ? `<span class="pastille${m.table === 'Comptes rendus' ? ' texte' : ''}">${m.table}</span>` : ''}${esc(m.libelle)}</div>
+    let html = resultat.marches.map((m, k) => `
+      <li class="${k === n - 1 && n > 1 ? 'dernier' : ''}"${k ? ` style="${styleEtape(k)}"` : ''}>
+        <div>${k ? `<span class="numero" title="Étape ${k}">${k}</span>` : ''}${m.table ? `<span class="pastille${m.table === 'Comptes rendus' ? ' texte' : ''}">${m.table}</span>` : ''}${esc(m.libelle)}</div>
         <div class="marche-barre"><span style="width:${Math.max(0.5, (100 * m.visites) / total)}%"></span></div>
         <div class="marche-nombres"><strong>${m.visites}</strong> visites · <strong>${m.patients}</strong> patients${indicateurs(m)}</div>
       </li>`).join('');
     if (n === 1) {
-      html += '<li class="entonnoir-vide">Ajoutez un filtre ou une recherche : chaque étape apparaîtra ici avec le nombre de lignes qui restent.</li>';
+      html += '<li class="entonnoir-vide">Ajoutez un filtre ou une recherche, puis appliquez les filtres : chaque étape apparaîtra ici, numérotée, avec le nombre de lignes qui restent.</li>';
     }
     $('entonnoir').innerHTML = html;
-    const fin = resultat.marches[n - 1];
-    $('barre-resultat').innerHTML = `<span><strong>${fin.visites}</strong> visites · <strong>${fin.patients}</strong> patients${indicateurs(fin)}</span>`
-      + '<span class="aller" aria-label="Voir les résultats"><span class="texte">Voir les résultats </span><i class="fa-solid fa-arrow-down"></i></span>';
   }
 
-  $('barre-resultat').addEventListener('click', () => $('resultats').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  // Barre collée en bas de l'écran, sur téléphone : le résultat, ou un rappel quand des filtres modifiés attendent
+  // d'être appliqués.
+  function rendreBarre(attente) {
+    const fin = resultat.marches[resultat.marches.length - 1];
+    $('barre-resultat').innerHTML = attente
+      ? '<span><strong>Filtres modifiés</strong><span class="indicateurs">Touchez ici pour les appliquer.</span></span>'
+        + '<span class="aller"><span class="texte">Appliquer les filtres </span><i class="fa-solid fa-filter"></i></span>'
+      : `<span><strong>${fin.visites}</strong> visites · <strong>${fin.patients}</strong> patients${indicateurs(fin)}</span>`
+        + '<span class="aller" aria-label="Voir les résultats"><span class="texte">Voir les résultats </span><i class="fa-solid fa-arrow-down"></i></span>';
+  }
+
+  $('barre-resultat').addEventListener('click', () => {
+    if (modifie()) appliquer();
+    $('resultats').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // Numéro de l'étape dont l'onglet affiché montre les comptes rendus non sélectionnés ; 0 pour les autres onglets.
+  function etapeAffichee() {
+    return vue.startsWith('ecartes-') ? Number(vue.slice('ecartes-'.length)) : 0;
+  }
+
+  // Onglets : les comptes rendus sélectionnés, ceux que chaque étape n'a pas sélectionnés, puis les tables.
+  function rendreOnglets() {
+    const n = resultat.lignes.length;
+    const onglet = (cle, contenu, attributs = '') =>
+      `<button type="button" role="tab" data-vue="${cle}" aria-selected="${cle === vue}"${attributs}>${contenu}</button>`;
+    $('onglets-tables').innerHTML = [
+      onglet('cr', `Comptes rendus <span class="compte">${n} / ${base.cr.length}</span>`),
+      ...resultat.marches.slice(1).map((m, i) => onglet(`ecartes-${i + 1}`,
+        `Non sélectionnés à l'étape ${i + 1} <span class="compte">${m.ecartees.length}</span>`,
+        ` class="ecartes" style="${styleEtape(i + 1)}" title="Comptes rendus non sélectionnés à l'étape ${i + 1}"`)),
+      onglet('visites', `Visites <span class="compte">${n} / ${base.visites.length}</span>`),
+      onglet('patients', `Patients <span class="compte">${E.nombrePatients(resultat.lignes)} / ${base.patients.length}</span>`),
+    ].join('');
+  }
 
   function rendreResultats() {
-    const n = resultat.lignes.length;
-    $('n-cr').textContent = `${n} / ${base.cr.length}`;
-    $('n-visites').textContent = `${n} / ${base.visites.length}`;
-    $('n-patients').textContent = `${new Set(resultat.lignes.map(v => v.id_patient)).size} / ${base.patients.length}`;
-    document.querySelectorAll('.onglets-tables button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.vue === vue)));
-    for (const v of ['cr', 'visites', 'patients']) $('vue-' + v).hidden = v !== vue;
-    if (vue === 'cr') rendreCr();
+    if (etapeAffichee() >= resultat.marches.length) vue = 'cr';
+    rendreOnglets();
+    const comptesRendus = vue === 'cr' || etapeAffichee() > 0;
+    $('vue-cr').hidden = !comptesRendus;
+    $('vue-visites').hidden = vue !== 'visites';
+    $('vue-patients').hidden = vue !== 'patients';
+    if (comptesRendus) rendreCr();
     if (vue === 'visites') rendreVisites();
     if (vue === 'patients') rendrePatients();
   }
 
   const AUCUN = '<p class="vide">Aucune ligne ne correspond. Retirez un filtre, ou vérifiez l\'orthographe des termes.</p>';
+  const nombreCr = n => `${n} compte${n > 1 ? 's' : ''} rendu${n > 1 ? 's' : ''}`;
 
+  // En tête de l'onglet « Non sélectionnés à l'étape k » : le filtre de l'étape et ce qu'il a écarté.
+  function bandeauEcartes(k) {
+    const avant = resultat.marches[k - 1].visites;
+    const n = resultat.marches[k].ecartees.length;
+    let detail;
+    if (k === 1) detail = n ? `Ce filtre écarte ${nombreCr(n)} sur ${avant}.` : "Ce filtre n'écarte aucun compte rendu.";
+    else if (!avant) detail = `Il ne restait aucun compte rendu après l'étape ${k - 1}.`;
+    else detail = `Après l'étape ${k - 1}, il restait ${nombreCr(avant)} : ce filtre ${n ? `en écarte ${n}` : "n'en écarte aucun"}.`;
+    return `
+      <div class="bandeau-etape" style="${styleEtape(k)}">
+        <span class="numero">${k}</span>
+        <p><strong>Non sélectionnés à l'étape ${k}</strong> · ${esc(resultat.marches[k].libelle)}<br>${detail}</p>
+      </div>`;
+  }
+
+  // Le lecteur de comptes rendus : ceux de la sélection, ou ceux qu'une étape n'a pas sélectionnés.
   function rendreCr() {
-    const lignes = lignesOrdonnees();
-    if (!lignes.length) { $('vue-cr').innerHTML = AUCUN; return; }
-    const v = lignes[indexCr];
-    const criteres = etat.criteres.map(R.compilerCritere);
+    const k = etapeAffichee();
+    const lignes = ordonner(k ? resultat.marches[k].ecartees : resultat.lignes);
+    const bandeau = k ? bandeauEcartes(k) : '';
+    if (!lignes.length) { $('vue-cr').innerHTML = bandeau + (k ? '' : AUCUN); return; }
+    const rang = Math.min(positions[vue] || 0, lignes.length - 1);
+    positions[vue] = rang;
+    const v = lignes[rang];
+    const criteres = applique.criteres.map(R.compilerCritere);
     const badges = criteres.map((c, i) => {
       if (!c.termes.length) return '';
       const present = R.trouver(v.texte, c).length > 0;
@@ -280,11 +366,11 @@
       const termes = c.termes.map(t => t.texte).join(' / ');
       return `<span class="badge ${classe}" style="${!c.exclure && present ? `background:${COULEURS[i % COULEURS.length]}` : ''}">${present ? '✓' : '✗'} ${c.exclure ? 'sans ' : ''}${esc(termes)}</span>`;
     }).join('');
-    $('vue-cr').innerHTML = `
+    $('vue-cr').innerHTML = bandeau + `
       <div class="navigation-cr">
-        <button class="bouton secondaire" data-nav="-1"${indexCr === 0 ? ' disabled' : ''}><i class="fa-solid fa-chevron-left"></i> Précédent</button>
-        <span><strong>${indexCr + 1}</strong> / ${lignes.length}</span>
-        <button class="bouton secondaire" data-nav="1"${indexCr >= lignes.length - 1 ? ' disabled' : ''}>Suivant <i class="fa-solid fa-chevron-right"></i></button>
+        <button class="bouton secondaire" data-nav="-1"${rang === 0 ? ' disabled' : ''}><i class="fa-solid fa-chevron-left"></i> Précédent</button>
+        <span><strong>${rang + 1}</strong> / ${lignes.length}</span>
+        <button class="bouton secondaire" data-nav="1"${rang >= lignes.length - 1 ? ' disabled' : ''}>Suivant <i class="fa-solid fa-chevron-right"></i></button>
       </div>
       <article class="cr" aria-label="Compte rendu de la visite ${v.id_visite}">
         <div class="cr-entete">
@@ -312,7 +398,7 @@
   }
 
   function rendreVisites() {
-    const lignes = lignesOrdonnees();
+    const lignes = ordonner(resultat.lignes);
     if (!lignes.length) { $('vue-visites').innerHTML = AUCUN; return; }
     const corps = lignes.slice(0, limiteVisites).map(v => `
       <tr data-visite="${v.id_visite}" tabindex="0">
@@ -331,7 +417,7 @@
 
   function rendrePatients() {
     const parPatient = new Map();
-    for (const v of lignesOrdonnees()) {
+    for (const v of ordonner(resultat.lignes)) {
       if (!parPatient.has(v.id_patient)) parPatient.set(v.id_patient, { patient: v.patient, visites: 0, premiere: v });
       parPatient.get(v.id_patient).visites++;
     }
@@ -352,8 +438,8 @@
   }
 
   function ouvrirCr(idVisite) {
-    indexCr = Math.max(0, lignesOrdonnees().findIndex(v => v.id_visite === idVisite));
     vue = 'cr';
+    positions.cr = Math.max(0, ordonner(resultat.lignes).findIndex(v => v.id_visite === idVisite));
     rendreResultats();
     $('vue-cr').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -367,7 +453,7 @@
 
   $('ordre').addEventListener('change', () => {
     ordre = $('ordre').value;
-    indexCr = 0;
+    positions = {};
     rendreResultats();
   });
 
@@ -377,7 +463,7 @@
       const plus = e.target.closest('[data-plus]');
       const ligne = e.target.closest('tr[data-visite]');
       const proposer = e.target.closest('[data-proposer]');
-      if (nav) { indexCr += Number(nav.dataset.nav); rendreCr(); }
+      if (nav) { positions[vue] += Number(nav.dataset.nav); rendreCr(); }
       if (plus && plus.dataset.plus === 'visites') { limiteVisites += PAR_PAGE; rendreVisites(); }
       if (plus && plus.dataset.plus === 'patients') { limitePatients += PAR_PAGE; rendrePatients(); }
       if (ligne) ouvrirCr(ligne.dataset.visite);
@@ -394,6 +480,8 @@
   }
 
   // --- Missions d'entraînement -----------------------------------------------------------------------------
+
+  const NON_APPLIQUES = "Ce n'est pas le bon nombre. Vous avez modifié les filtres sans les appliquer : cliquez sur « Appliquer les filtres », puis relisez l'entonnoir.";
 
   function changerMission(n) {
     mission = n;
@@ -454,8 +542,9 @@
         <div class="actions"><button class="bouton principal" data-mission="suivante">${mission + 1 < E.MISSIONS.length ? 'Mission suivante' : 'Commencer l\'enquête'} <i class="fa-solid fa-arrow-right"></i></button></div>`;
       return;
     }
-    const affiche = m.compte === 'patients' ? E.nombrePatients(resultat.lignes) : resultat.lignes.length;
     retour.className = 'retour ko';
+    if (modifie()) { retour.textContent = NON_APPLIQUES; return; }
+    const affiche = m.compte === 'patients' ? E.nombrePatients(resultat.lignes) : resultat.lignes.length;
     retour.textContent = `Ce n'est pas le bon nombre. Votre entonnoir affiche ${affiche} ${m.compte} : `
       + (affiche === attendu ? 'c\'est ce chiffre qu\'il faut taper.' : m.indice);
   });
@@ -473,7 +562,8 @@
       lire: ['ko', "Ce n'est pas le bon nombre. Votre sélection garde exactement les malades : lisez son nombre de patients dans l'entonnoir."],
       selection: ['ko', "Ce n'est pas le bon nombre. Votre sélection ne garde pas encore exactement les malades : visez 100 % de sensibilité et 100 % de spécificité, puis comptez les patients."],
     };
-    const [classe, texte] = messages[r.statut];
+    // « lire » et « selection » jugent l'entonnoir affiché : il n'est pas à jour si des filtres attendent.
+    const [classe, texte] = modifie() && ['lire', 'selection'].includes(r.statut) ? ['ko', NON_APPLIQUES] : messages[r.statut];
     retour.className = 'retour ' + classe;
     retour.textContent = texte;
   });

@@ -17,11 +17,13 @@ Le jeu a trois pages :
 1. **L'affaire** : la mission, l'histoire, la fiche du virus, la méthode en trois étapes, la courbe des cas
    détectés et le schéma des trois tables.
 2. **L'enquête** : 5 missions d'entraînement qui apprennent les outils sur d'autres sujets (chutes, courbatures,
-   douleurs thoraciques), sans piste sur le virus, puis l'enquête libre. Filtres sur la table Visites,
+   douleurs thoraciques), sans piste sur le virus, puis l'enquête libre. Filtres sur la table Visites et
    recherches dans les comptes rendus (un terme trouve aussi les mots qui commencent par lui : « ROT » trouve
-   « rotulien »), entonnoir avec la sensibilité et la spécificité de la sélection à chaque étape (par rapport aux
-   visites des malades), onglets Comptes rendus / Visites / Patients, la question bonus (combien de patients
-   sont atteints ?) et la case pour proposer le patient zéro.
+   « rotulien »), pris en compte au clic sur « Appliquer les filtres » (ou avec la touche Entrée). Entonnoir :
+   chaque étape a un numéro et une couleur, avec la sensibilité et la spécificité de la sélection (par rapport
+   aux visites des malades). Onglets : Comptes rendus (la sélection), « Non sélectionnés à l'étape X » (les
+   comptes rendus que cette étape a écartés, sur le fond de sa couleur), Visites et Patients. Puis la question
+   bonus (combien de patients sont atteints ?) et la case pour proposer le patient zéro.
 3. **Le bilan** : l'histoire complète et ce que le joueur a appris. Il est chiffré : il s'ouvre avec la bonne
    réponse, ou avec le mot de passe animateur (« Accès animateur »).
 
@@ -35,6 +37,7 @@ Le jeu a trois pages :
 | `js/jeu.js` | Affichage et interactions |
 | `donnees.js` | Les trois tables, produites par le générateur (ne pas modifier à la main) |
 | `generateur/generer.py` | Générateur des données, à partir du scénario |
+| `generateur/versions.py` | Numéros de version des fichiers dans `index.html`, contre le cache des navigateurs |
 | `docs/scenario.md` | Ce qui s'est « réellement » passé : la référence du générateur |
 | `tests/tests.html` | Tests du moteur et des données |
 
@@ -54,15 +57,28 @@ solution unique, incubation, leurres (dont au moins 10 non-malades par paire de 
 test, cohérence des tables, forme de la vague. Il écrit aussi `docs/solution.md` (la solution, la réponse de la
 question bonus et celles des missions, pour l'animateur) et `tests/attendu.js`.
 
+## Publier une modification
+
+`index.html` charge chaque fichier avec un numéro tiré de son contenu (`donnees.js?v=1b543ebb`) : quand un
+fichier change, son adresse change, et les navigateurs téléchargent la nouvelle version au lieu de garder
+l'ancienne en cache. Le générateur met ces numéros à jour ; après une modification du code (`style.css`, `js/`),
+lancer avant de publier :
+
+```
+python generateur/versions.py
+```
+
+GitHub Pages met ensuite quelques minutes à servir la nouvelle version.
+
 ## Tester
 
-Après le générateur, ouvrir `tests/tests.html` dans un navigateur. La page doit afficher « OK : 62 tests ».
+Après le générateur, ouvrir `tests/tests.html` dans un navigateur. La page doit afficher « OK : 64 tests ».
 
 Les tests confrontent le moteur de recherche à ce que le générateur a écrit dans chaque compte rendu. Ils
 vérifient aussi que la solution est unique, que les trois pièges (négation, signes incomplets, synonymes)
 mènent à une mauvaise réponse, que deux signes sur trois laissent toujours des non-malades, que le test ne
-trouve pas tous les malades, les réponses de la question bonus, et qu'aucune mission d'entraînement ne donne de
-piste sur le virus.
+trouve pas tous les malades, les comptes rendus non sélectionnés à chaque étape de l'entonnoir, les réponses de
+la question bonus, et qu'aucune mission d'entraînement ne donne de piste sur le virus.
 
 ## Dépôt public
 

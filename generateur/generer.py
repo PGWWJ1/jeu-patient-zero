@@ -11,6 +11,7 @@ d'environnement MOT_DE_PASSE_ANIMATEUR). Il n'est enregistré nulle part : le bi
 - tests/attendu.js : les résultats attendus du moteur de recherche, pour tests/tests.html.
 
 Les deux derniers fichiers contiennent la solution : ils ne sont pas versionnés (le dépôt est public).
+Met ensuite à jour les numéros de version des fichiers dans index.html (versions.py).
 Le tirage est fixé par GRAINE : relancer le script redonne exactement les mêmes données.
 """
 from __future__ import annotations
@@ -29,6 +30,8 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
+
+import versions
 
 RACINE = Path(__file__).resolve().parent.parent
 GRAINE = 1975
@@ -923,6 +926,7 @@ def main() -> None:
     monde = generer()
     verif = verifier(monde)
     ecrire(monde, verif, mot_de_passe)
+    versions.mettre_a_jour()
     taille = (RACINE / "donnees.js").stat().st_size
     print(f"{len(monde['patients'])} patients, {len(monde['visites'])} visites, {len(verif['visibles'])} malades "
           f"(dont {len(verif['sans_test'])} jamais testés) ; patient zéro {verif['pz'].id} ; "

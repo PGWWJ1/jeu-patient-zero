@@ -114,29 +114,50 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
 .critere-pied { display: grid; gap: 8px; margin-top: 8px; }
 .critere-pied .bouton { justify-self: start; }
 .critere-pied .lien-phrase { display: flex; flex-direction: column; gap: 2px; font-size: .85rem; font-weight: 600; color: var(--discret); }
-.tout-effacer { margin: -4px 0 16px; }
 .tout-effacer.haut { margin: 0 0 8px; }
+/* Le bouton reste visible au bas de l'écran pendant qu'on fait défiler les filtres. */
+.appliquer { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  padding: 10px 0 12px; margin-bottom: 16px; background: var(--fond); }
+.appliquer #appliquer { flex: 1 1 auto; }
+.bouton.principal.attente { box-shadow: 0 0 0 3px #f6c768; }
+.etat-filtres { flex-basis: 100%; margin: 0; font-size: .85rem; font-weight: 600; color: var(--ambre); }
+.etat-filtres:empty { display: none; }
 
 .entonnoir-aide { margin-bottom: 12px; }
-.entonnoir { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.attente-filtres { background: var(--ambre-clair); color: var(--ambre); border-radius: 8px; padding: 8px 12px; font-size: .92rem; margin: 0 0 12px; }
+.entonnoir { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; transition: opacity .2s; }
+.entonnoir.perime { opacity: .45; }
+/* Numéro d'étape, dans la couleur de l'étape (variables --etape et --etape-claire posées par jeu.js) */
+.numero { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 999px; background: var(--etape); color: #fff; font-size: .78rem; font-weight: 700; margin-right: 6px; }
 .entonnoir li { display: grid; grid-template-columns: minmax(0, 1fr) 160px minmax(170px, max-content); gap: 4px 12px; align-items: center; font-size: .92rem; }
 .entonnoir li.dernier { font-weight: 700; }
 .entonnoir .pastille { display: inline-block; font-size: .72rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-right: 6px;
   background: var(--bleu-clair); color: var(--bleu-fonce); vertical-align: 1px; }
 .entonnoir .pastille.texte { background: #f1e8fb; color: #5b2a8c; }
 .marche-barre { height: 10px; background: var(--fond); border-radius: 5px; overflow: hidden; }
-.marche-barre span { display: block; height: 100%; background: var(--bleu); border-radius: 5px; }
+.marche-barre span { display: block; height: 100%; background: var(--etape, #8a94a6); border-radius: 5px; }
 .marche-nombres { text-align: right; white-space: nowrap; }
 .indicateurs { display: block; font-size: .82rem; font-weight: 500; color: var(--discret); }
 .indicateurs strong { color: var(--texte); }
 .indicateurs .parfait { color: var(--vert); }
 .entonnoir-vide { color: var(--discret); font-size: .9rem; }
 
-.onglets-tables { display: flex; gap: 4px; box-shadow: inset 0 -2px 0 var(--bord); margin-bottom: 12px; overflow-x: auto; overflow-y: hidden; }
-.onglets-tables button { background: none; border: none; border-bottom: 3px solid transparent; padding: 8px 12px;
-  font-weight: 600; cursor: pointer; white-space: nowrap; color: var(--discret); }
-.onglets-tables button[aria-selected="true"] { color: var(--bleu); border-bottom-color: var(--bleu); }
+.onglets-tables { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.onglets-tables button { background: #fff; border: 1px solid var(--bord); border-radius: 8px; padding: 5px 10px;
+  font-size: .92rem; font-weight: 600; cursor: pointer; color: var(--discret); text-align: left; }
+.onglets-tables button:hover { border-color: var(--bleu); }
+.onglets-tables button[aria-selected="true"] { color: var(--bleu-fonce); background: var(--bleu-clair); border-color: var(--bleu);
+  box-shadow: inset 0 0 0 1px var(--bleu); }
+/* Comptes rendus non sélectionnés à une étape : fond de la couleur de l'étape */
+.onglets-tables button.ecartes { color: var(--texte); background: var(--etape-claire); border-color: var(--etape-claire);
+  border-left: 5px solid var(--etape); }
+.onglets-tables button.ecartes[aria-selected="true"] { border-color: var(--etape); box-shadow: inset 0 0 0 1px var(--etape); }
 .onglets-tables .compte { font-weight: 500; font-size: .85rem; }
+.bandeau-etape { display: flex; gap: 10px; align-items: flex-start; background: var(--etape-claire); border-left: 5px solid var(--etape);
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: .92rem; }
+.bandeau-etape p { margin: 0; }
+.bandeau-etape .numero { margin: 0; }
 .tri { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 .tri label { display: flex; align-items: center; gap: 8px; font-size: .9rem; color: var(--discret); }
 .tri select { width: auto; }
@@ -186,6 +207,8 @@ td.nombre { text-align: right; font-variant-numeric: tabular-nums; }
   .schema { grid-template-columns: 1fr; }
   .entonnoir li { grid-template-columns: 1fr auto; }
   .marche-barre { grid-column: 1 / -1; grid-row: 2; }
+  /* La barre du bas, ci-dessous, prend le relais du bouton collé. */
+  .appliquer { position: static; }
   /* Sur un écran étroit, les filtres repoussent l'entonnoir loin en dessous : une barre collée en bas
      garde le résultat sous les yeux. */
   .barre-resultat { display: flex; justify-content: space-between; align-items: center; gap: 10px; position: sticky; bottom: 0;
@@ -208,7 +231,8 @@ td.nombre { text-align: right; font-variant-numeric: tabular-nums; }
   .marche-nombres { text-align: left; }
   .marche-barre { grid-row: auto; }
   .cr-pied .bouton { margin-left: 0; width: 100%; }
-  .onglets-tables button { flex: 1; padding: 8px 4px; font-size: .9rem; }
+  .onglets-tables { display: grid; grid-template-columns: 1fr 1fr; }
+  .onglets-tables button { padding: 6px 8px; font-size: .88rem; }
   .barre-resultat .indicateurs { white-space: nowrap; }
   .barre-resultat .aller .texte { display: none; }
   .barre-resultat .aller { font-size: 1.2rem; }

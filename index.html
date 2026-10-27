@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Patient Zéro</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=4e49592b">
 </head>
 <body>
 
@@ -110,7 +110,7 @@
   <section class="carte mission" id="mission" aria-live="polite"></section>
 
   <div class="enquete-grille">
-    <aside>
+    <form id="form-filtres" aria-label="Filtres et recherches" novalidate>
       <button class="bouton lien tout-effacer haut" type="button"><i class="fa-solid fa-eraser"></i> Tout effacer</button>
       <details class="carte repliable" open>
         <summary><i class="fa-solid fa-table"></i> Filtres sur la table Visites</summary>
@@ -131,29 +131,34 @@
         seul suffit. Les accents, les majuscules et le pluriel ne comptent pas. Un terme trouve aussi les mots qui
         commencent par lui : « céphal » trouve « céphalées ».</p>
         <div id="criteres"></div>
-        <button class="bouton secondaire" id="ajouter-critere"><i class="fa-solid fa-plus"></i> Ajouter une recherche</button>
+        <button class="bouton secondaire" type="button" id="ajouter-critere"><i class="fa-solid fa-plus"></i> Ajouter une recherche</button>
       </details>
 
-      <button class="bouton lien tout-effacer" type="button"><i class="fa-solid fa-eraser"></i> Tout effacer</button>
-    </aside>
+      <div class="appliquer">
+        <button class="bouton principal" type="submit" id="appliquer"><i class="fa-solid fa-filter"></i> Appliquer les filtres</button>
+        <button class="bouton lien tout-effacer" type="button"><i class="fa-solid fa-eraser"></i> Tout effacer</button>
+        <p class="etat-filtres" id="etat-filtres" aria-live="polite"></p>
+      </div>
+    </form>
 
     <div>
       <section class="carte" id="resultats">
         <h2>Entonnoir</h2>
         <p class="discret entonnoir-aide">Nombre de lignes qui restent après chaque filtre. Une visite a un seul
-        compte rendu : les tables Visites et Comptes rendus gardent le même nombre de lignes.</p>
+        compte rendu : les tables Visites et Comptes rendus gardent le même nombre de lignes. Chaque étape a un
+        numéro et une couleur : sous l'entonnoir, l'onglet de même couleur montre les comptes rendus qu'elle n'a
+        pas sélectionnés.</p>
         <p class="discret entonnoir-aide"><strong>Sensibilité</strong> : part des visites de malades du Nova-virus
         que votre sélection garde. <strong>Spécificité</strong> : part des visites de non-malades qu'elle écarte.
         Une sélection parfaite atteint 100 % et 100 %.</p>
+        <p class="attente-filtres" id="attente-filtres" hidden><i class="fa-solid fa-triangle-exclamation"></i>
+        Les filtres ont changé. Cliquez sur <strong>Appliquer les filtres</strong> pour mettre à jour l'entonnoir et
+        les comptes rendus.</p>
         <ol class="entonnoir" id="entonnoir"></ol>
       </section>
 
       <section class="carte">
-        <div class="onglets-tables" role="tablist" aria-label="Tables">
-          <button role="tab" data-vue="cr" aria-selected="true">Comptes rendus <span class="compte" id="n-cr"></span></button>
-          <button role="tab" data-vue="visites" aria-selected="false">Visites <span class="compte" id="n-visites"></span></button>
-          <button role="tab" data-vue="patients" aria-selected="false">Patients <span class="compte" id="n-patients"></span></button>
-        </div>
+        <div class="onglets-tables" id="onglets-tables" role="tablist" aria-label="Tables"></div>
         <div class="tri">
           <label>Ordre
             <select id="ordre">
@@ -209,9 +214,9 @@
 
 </main>
 
-<script src="donnees.js"></script>
-<script src="js/recherche.js"></script>
-<script src="js/enquete.js"></script>
-<script src="js/jeu.js"></script>
+<script src="donnees.js?v=1b543ebb"></script>
+<script src="js/recherche.js?v=95b4e049"></script>
+<script src="js/enquete.js?v=7fd25e5c"></script>
+<script src="js/jeu.js?v=219964b9"></script>
 </body>
 </html>

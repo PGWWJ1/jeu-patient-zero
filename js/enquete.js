@@ -103,15 +103,18 @@
   }
 
   // Applique les étapes une à une ; chaque ligne de l'entonnoir donne le nombre de lignes restantes par table,
-  // avec la sensibilité et la spécificité de la sélection à ce stade.
+  // avec la sensibilité et la spécificité de la sélection à ce stade, et les visites que l'étape a écartées
+  // (elles avaient passé les étapes précédentes).
   function entonnoir(base, etat) {
     let lignes = base.visites;
-    const marche = (table, libelle) => Object.assign(
-      { table, libelle, visites: lignes.length, patients: nombrePatients(lignes) }, indicateurs(base, lignes));
-    const marches = [marche('', 'Toutes les données')];
+    const marche = (table, libelle, ecartees) => Object.assign(
+      { table, libelle, visites: lignes.length, patients: nombrePatients(lignes), ecartees }, indicateurs(base, lignes));
+    const marches = [marche('', 'Toutes les données', [])];
     for (const e of etapes(etat)) {
-      lignes = lignes.filter(e.garde);
-      marches.push(marche(e.table, e.libelle));
+      const gardees = [], ecartees = [];
+      for (const v of lignes) (e.garde(v) ? gardees : ecartees).push(v);
+      lignes = gardees;
+      marches.push(marche(e.table, e.libelle, ecartees));
     }
     return { lignes, marches };
   }
@@ -153,8 +156,8 @@
   const MISSIONS = [
     {
       titre: 'Filtrer la table Visites',
-      consigne: 'Réglez le filtre <strong>Hôpital</strong> sur <strong>CHU Lille</strong> et la période <strong>du 01/04/1975 au 30/04/1975</strong>. Combien de visites reste-t-il ?',
-      indice: "Les filtres sont dans « Filtres sur la table Visites ». Le dernier chiffre de l'entonnoir donne le nombre de visites qui passent tous les filtres.",
+      consigne: 'Réglez le filtre <strong>Hôpital</strong> sur <strong>CHU Lille</strong> et la période <strong>du 01/04/1975 au 30/04/1975</strong>, puis cliquez sur <strong>Appliquer les filtres</strong>. Combien de visites reste-t-il ?',
+      indice: "Les filtres sont dans « Filtres sur la table Visites ». Ils ne comptent qu'après un clic sur « Appliquer les filtres ». Le dernier chiffre de l'entonnoir donne alors le nombre de visites qui passent tous les filtres.",
       bravo: "Chaque filtre retire des lignes de la table Visites : l'entonnoir montre combien il en reste à chaque étape.",
       etat: LILLE_AVRIL,
       compte: 'visites',
@@ -169,8 +172,8 @@
     },
     {
       titre: 'Chercher dans le texte',
-      consigne: 'Cliquez sur <strong>Tout effacer</strong>, puis ajoutez une recherche qui <strong>doit contenir</strong> le mot <strong>chute</strong>. Combien de visites ?',
-      indice: 'Bouton « Ajouter une recherche », dans la partie Recherche dans les comptes rendus. Vérifiez que les filtres de la table Visites sont bien effacés.',
+      consigne: 'Cliquez sur <strong>Tout effacer</strong>, puis ajoutez une recherche qui <strong>doit contenir</strong> le mot <strong>chute</strong> et appliquez les filtres. Combien de visites ?',
+      indice: 'Bouton « Ajouter une recherche », dans la partie Recherche dans les comptes rendus, puis « Appliquer les filtres ». Vérifiez que les filtres de la table Visites sont bien effacés.',
       bravo: 'La recherche lit le texte libre des comptes rendus. Les mots trouvés sont surlignés : ouvrez quelques comptes rendus pour le voir.',
       etat: { criteres: [{ termes: ['chute'] }] },
       compte: 'visites',
