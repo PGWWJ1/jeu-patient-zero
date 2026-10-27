@@ -119,6 +119,8 @@
   const bilan = await E.dechiffrerBilan(base, pz);
   test('le bilan se déchiffre avec la bonne réponse', bilan.startsWith(`## Le patient zéro est ${pz}`), bilan.slice(0, 60));
   test('le bilan contient le lexique', bilan.includes('## Ce que vous avez fait'));
+  test('le bilan parle de rappel et de précision', bilan.includes('rappel') && bilan.includes('précision')
+    && !/sensibilit|spécificit/i.test(bilan));
   const vecteur = A.vecteur_animateur;
   test('mot de passe animateur : le navigateur déchiffre comme le générateur',
     await E.ouvrirBilanAnimateur(base, vecteur.mot_de_passe, vecteur.code) === '## Le patient zéro est P0000');
@@ -126,14 +128,17 @@
 
   const marches = E.entonnoir(base, Object.assign(E.etatVide(), requetes.trois_signes)).marches;
   const fin = marches[marches.length - 1];
-  test('sans filtre : sensibilité 100 %, spécificité 0 %', marches[0].sensibilite === 1 && marches[0].specificite === 0);
-  test('les trois signes : sensibilité et spécificité de 100 %', fin.sensibilite === 1 && fin.specificite === 1,
-    `${fin.sensibilite} / ${fin.specificite}`);
+  const partMalades = A.trois_signes.length / base.visites.length;
+  test('sans filtre : rappel 100 %, précision = part des visites de malades',
+    marches[0].rappel === 1 && marches[0].precision === partMalades, `${marches[0].rappel} / ${marches[0].precision}`);
+  test('les trois signes : rappel et précision de 100 %', fin.rappel === 1 && fin.precision === 1,
+    `${fin.rappel} / ${fin.precision}`);
   test('entonnoir : chaque étape écarte exactement les visites qu\'elle perd', marches[0].ecartees.length === 0
     && marches.slice(1).every((m, k) => m.ecartees.length === marches[k].visites - m.visites),
     marches.map(m => `${m.visites} (−${m.ecartees.length})`).join(' → '));
   const fievre = E.entonnoir(base, Object.assign(E.etatVide(), requetes.temperature_40)).marches[1];
-  test('fièvre seule : sensible mais pas spécifique', fievre.sensibilite === 1 && fievre.specificite < 1);
+  test('fièvre seule : tous les malades (rappel 100 %), mais aussi des non-malades (précision < 100 %)',
+    fievre.rappel === 1 && fievre.precision < 1, `${fievre.rappel} / ${fievre.precision}`);
   const deuxSignes = {
     'fièvre et plaques': { temperatureMin: '40', criteres: plaquesAffirmees },
     'fièvre et réflexe': { temperatureMin: '40', criteres: [reflexe] },
@@ -141,16 +146,19 @@
   };
   for (const [nom, etat] of Object.entries(deuxSignes)) {
     const m = E.entonnoir(base, Object.assign(E.etatVide(), etat)).marches.at(-1);
-    test(`deux signes (${nom}) : tous les malades, et des non-malades`, m.sensibilite === 1 && m.specificite < 1,
-      `${m.sensibilite} / ${m.specificite}`);
+    test(`deux signes (${nom}) : tous les malades, et des non-malades`, m.rappel === 1 && m.precision < 1,
+      `${m.rappel} / ${m.precision}`);
   }
   const sansReflexe = ids(deuxSignes['fièvre et plaques']).filter(id => !A.trois_signes.includes(id));
   const ecarteesReflexe = fin.ecartees.map(v => v.id_visite);
   test('non sélectionnés à la dernière étape : les visites avec fièvre et plaques, sans le réflexe',
     sansReflexe.length > 0 && memes(ecarteesReflexe, sansReflexe), ecart(ecarteesReflexe, sansReflexe));
   const positif = E.entonnoir(base, Object.assign(E.etatVide(), { test: 'positif' })).marches[1];
-  test('test positif : spécifique, mais des malades n\'ont pas eu le test', positif.specificite === 1 && positif.sensibilite < 1,
-    `${positif.sensibilite} / ${positif.specificite}`);
+  test('test positif : que des malades (précision 100 %), mais pas tous, des malades n\'ont pas eu le test (rappel < 100 %)',
+    positif.precision === 1 && positif.rappel < 1, `${positif.rappel} / ${positif.precision}`);
+  const vide = E.entonnoir(base, Object.assign(E.etatVide(), { temperatureMin: '45' })).marches[1];
+  test('sélection vide : rappel 0 %, précision non définie', vide.visites === 0 && vide.rappel === 0 && vide.precision === null,
+    `${vide.visites} visites, ${vide.rappel} / ${vide.precision}`);
   test('des malades sans test après T0 (le test arrive plus tard dans certains CHU)',
     base.visites.some(v => v.malade && v.date >= base.meta.t0 && v.test_nova === 'non disponible'));
 

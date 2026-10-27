@@ -473,7 +473,7 @@ def leurres(rng: random.Random, rng_entrainement: random.Random) -> list[Patient
 # --- Non-malades qui ont deux des trois signes ----------------------------------------------------------
 #
 # Chaque famille a deux signes du virus et pas le troisième : un joueur qui oublie un critère garde ces visites, et
-# l'entonnoir le montre par une spécificité inférieure à 100 %. Les signes s'écrivent avec les mêmes formes que
+# l'entonnoir le montre par une précision inférieure à 100 %. Les signes s'écrivent avec les mêmes formes que
 # chez les malades.
 
 NB_PAR_FAMILLE = 20
@@ -737,7 +737,7 @@ LEXIQUE = """## Ce que vous avez fait
 
 - **Filtrer une table.** Chaque filtre sur la table Visites retire des lignes. L'entonnoir montre combien il en reste à chaque étape.
 - **Relier des tables.** Une visite appartient à un patient et a un compte rendu. On compte les patients à partir des visites retenues.
-- **Mesurer sa sélection.** La sensibilité dit quelle part des malades la sélection garde, la spécificité quelle part des non-malades elle écarte. On les pousse toutes deux vers 100 % avant de chercher le patient zéro.
+- **Mesurer sa sélection.** Le rappel dit quelle part des malades la sélection garde, la précision quelle part de la sélection correspond à des malades. On les pousse tous deux vers 100 % avant de chercher le patient zéro.
 - **Chercher dans du texte libre.** Un signe s'écrit de plusieurs façons (« PRD », « plaques rouges dlr », « ROT abolis ») : il faut prévoir les synonymes et les abréviations. Un début de mot trouve les mots plus longs (« ROT » trouve « rotulien »), mais pas l'inverse : « réflexe rotulien » ne trouve pas « ROT abolis ».
 - **Écarter les négations.** « Pas de PRD » contient « PRD ». Chercher dans la même phrase permet d'écarter les signes niés sans perdre les autres.
 - **Croiser les critères.** Deux signes ne suffisent pas : un érysipèle chez un diabétique donne des plaques douloureuses et un réflexe aboli, sans fièvre à 40 °C. Seuls les trois signes ensemble désignent le Nova-virus.

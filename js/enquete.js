@@ -88,22 +88,21 @@
     return new Set(visites.map(v => v.id_patient)).size;
   }
 
-  /* Sensibilité et spécificité d'une sélection de visites, par rapport aux visites des malades du Nova-virus :
-   * sensibilité = part des visites de malades que la sélection garde ;
-   * spécificité = part des visites de non-malades que la sélection écarte.
-   * Nulles tant que preparerVerite n'a pas tourné. */
+  /* Rappel et précision d'une sélection de visites, par rapport aux visites des malades du Nova-virus :
+   * rappel = part des visites de malades que la sélection garde ;
+   * précision = part des visites de la sélection qui sont des visites de malades (null si la sélection est vide).
+   * Les deux valent null tant que preparerVerite n'a pas tourné. */
   function indicateurs(base, lignes) {
-    if (!base.verite) return { sensibilite: null, specificite: null };
-    const { malades, sains } = base.verite;
+    if (!base.verite) return { rappel: null, precision: null };
     const vraisPositifs = lignes.filter(v => v.malade).length;
     return {
-      sensibilite: vraisPositifs / malades,
-      specificite: (sains - (lignes.length - vraisPositifs)) / sains,
+      rappel: vraisPositifs / base.verite.malades,
+      precision: lignes.length ? vraisPositifs / lignes.length : null,
     };
   }
 
   // Applique les étapes une à une ; chaque ligne de l'entonnoir donne le nombre de lignes restantes par table,
-  // avec la sensibilité et la spécificité de la sélection à ce stade, et les visites que l'étape a écartées
+  // avec le rappel et la précision de la sélection à ce stade, et les visites que l'étape a écartées
   // (elles avaient passé les étapes précédentes).
   function entonnoir(base, etat) {
     let lignes = base.visites;
@@ -225,7 +224,7 @@
   }
 
   // Les malades ne sont livrés que sous forme d'empreintes : on les retrouve en calculant celle de chaque patient.
-  // Sert à la sensibilité et à la spécificité de l'entonnoir.
+  // Sert au rappel et à la précision de l'entonnoir.
   async function preparerVerite(base) {
     const sel = base.verification.sel;
     const malades = new Set(base.verification.malades);
@@ -233,7 +232,7 @@
     base.patients.forEach((p, i) => { p.malade = malades.has(empreintes[i]); });
     for (const v of base.visites) v.malade = v.patient.malade;
     const nbMalades = base.visites.filter(v => v.malade).length;
-    base.verite = { malades: nbMalades, sains: base.visites.length - nbMalades };
+    base.verite = { malades: nbMalades };
   }
 
   /* Question bonus : combien de patients ont le Nova-virus ? Statut : format, juste, visites (le joueur a donné le
@@ -246,8 +245,8 @@
     const n = Number(texte);
     if (n === base.patients.filter(p => p.malade).length) return { statut: 'juste', n };
     if (n === base.verite.malades) return { statut: 'visites', n };
-    const { sensibilite, specificite } = indicateurs(base, lignes);
-    return { statut: sensibilite === 1 && specificite === 1 ? 'lire' : 'selection', n };
+    const { rappel, precision } = indicateurs(base, lignes);
+    return { statut: rappel === 1 && precision === 1 ? 'lire' : 'selection', n };
   }
 
   // Inverse de chiffrer() dans generateur/generer.py : flux SHA-256 dérivé de la clé, combiné par OU exclusif.

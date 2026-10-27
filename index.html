@@ -64,7 +64,7 @@
     <h2><i class="fa-solid fa-list-check"></i> La méthode</h2>
     <ol class="etapes-methode" id="methode">
       <li><strong>Repérer tous les malades.</strong> Construisez une sélection qui garde toutes les visites de malades
-      du Nova-virus et écarte les autres. Dans l'entonnoir, poussez la sensibilité et la spécificité le plus près
+      du Nova-virus et écarte les autres. Dans l'entonnoir, poussez le rappel et la précision le plus près
       possible de 100 %. Répondez alors à la question bonus : combien de patients sont atteints ?</li>
       <li><strong>Trouver le patient zéro.</strong> Parmi les malades, cherchez ce qui le distingue des autres.</li>
       <li><strong>Vérifier avant de proposer.</strong> Lisez ses comptes rendus : tout doit concorder avec
@@ -148,9 +148,9 @@
         compte rendu : les tables Visites et Comptes rendus gardent le même nombre de lignes. Chaque étape a un
         numéro et une couleur : sous l'entonnoir, l'onglet de même couleur montre les comptes rendus qu'elle n'a
         pas sélectionnés.</p>
-        <p class="discret entonnoir-aide"><strong>Sensibilité</strong> : part des visites de malades du Nova-virus
-        que votre sélection garde. <strong>Spécificité</strong> : part des visites de non-malades qu'elle écarte.
-        Une sélection parfaite atteint 100 % et 100 %.</p>
+        <p class="discret entonnoir-aide"><strong>Rappel</strong> : part des visites de malades du Nova-virus que
+        votre sélection garde. <strong>Précision</strong> : part des visites de votre sélection qui sont des visites
+        de malades. Une sélection parfaite atteint 100 % et 100 %.</p>
         <p class="attente-filtres" id="attente-filtres" hidden><i class="fa-solid fa-triangle-exclamation"></i>
         Les filtres ont changé. Cliquez sur <strong>Appliquer les filtres</strong> pour mettre à jour l'entonnoir et
         les comptes rendus.</p>
@@ -214,9 +214,9 @@
 
 </main>
 
-<script src="donnees.js?v=1b543ebb"></script>
+<script src="donnees.js?v=60d4d99e"></script>
 <script src="js/recherche.js?v=95b4e049"></script>
-<script src="js/enquete.js?v=7fd25e5c"></script>
-<script src="js/jeu.js?v=219964b9"></script>
+<script src="js/enquete.js?v=5df87a85"></script>
+<script src="js/jeu.js?v=79efd246"></script>
 </body>
 </html>

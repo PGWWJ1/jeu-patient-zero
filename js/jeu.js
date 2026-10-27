@@ -258,8 +258,9 @@
   }
 
   function indicateurs(m) {
-    if (m.sensibilite === null) return '';
-    return `<span class="indicateurs">sensibilité ${pourcentage(m.sensibilite)} · spécificité ${pourcentage(m.specificite)}</span>`;
+    if (m.rappel === null) return '';
+    const precision = m.precision === null ? '<strong title="Aucune visite sélectionnée">—</strong>' : pourcentage(m.precision);
+    return `<span class="indicateurs">rappel ${pourcentage(m.rappel)} · précision ${precision}</span>`;
   }
 
   // Variables CSS de l'étape k de l'entonnoir (k ≥ 1) : sa couleur foncée et sa couleur claire.
@@ -560,7 +561,7 @@
       juste: ['ok', `Bravo ! ${r.n} patients ont eu le Nova-virus entre mars et juin 1975. Reste à trouver celui qui l'a ramené en France.`],
       visites: ['info', `${r.n}, c'est le nombre de visites des malades. Un malade peut venir plusieurs fois aux urgences : comptez les patients.`],
       lire: ['ko', "Ce n'est pas le bon nombre. Votre sélection garde exactement les malades : lisez son nombre de patients dans l'entonnoir."],
-      selection: ['ko', "Ce n'est pas le bon nombre. Votre sélection ne garde pas encore exactement les malades : visez 100 % de sensibilité et 100 % de spécificité, puis comptez les patients."],
+      selection: ['ko', "Ce n'est pas le bon nombre. Votre sélection ne garde pas encore exactement les malades : visez 100 % de rappel et 100 % de précision, puis comptez les patients."],
     };
     // « lire » et « selection » jugent l'entonnoir affiché : il n'est pas à jour si des filtres attendent.
     const [classe, texte] = modifie() && ['lire', 'selection'].includes(r.statut) ? ['ko', NON_APPLIQUES] : messages[r.statut];
@@ -669,6 +670,6 @@
   calculer();
   const pageDemandee = location.hash.slice(1);
   if (['enquete', 'bilan'].includes(pageDemandee)) allerA(pageDemandee);
-  // La sensibilité et la spécificité s'affichent dès que les malades sont retrouvés (calcul d'empreintes).
+  // Le rappel et la précision s'affichent dès que les malades sont retrouvés (calcul d'empreintes).
   E.preparerVerite(base).then(calculer).catch(() => { /* navigateur sans crypto.subtle : pas d'indicateurs */ });
 })();

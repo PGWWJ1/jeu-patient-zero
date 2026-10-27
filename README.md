@@ -20,8 +20,8 @@ Le jeu a trois pages :
    douleurs thoraciques), sans piste sur le virus, puis l'enquête libre. Filtres sur la table Visites et
    recherches dans les comptes rendus (un terme trouve aussi les mots qui commencent par lui : « ROT » trouve
    « rotulien »), pris en compte au clic sur « Appliquer les filtres » (ou avec la touche Entrée). Entonnoir :
-   chaque étape a un numéro et une couleur, avec la sensibilité et la spécificité de la sélection (par rapport
-   aux visites des malades). Onglets : Comptes rendus (la sélection), « Non sélectionnés à l'étape X » (les
+   chaque étape a un numéro et une couleur, avec le rappel et la précision de la sélection (calculés sur les
+   visites des malades). Onglets : Comptes rendus (la sélection), « Non sélectionnés à l'étape X » (les
    comptes rendus que cette étape a écartés, sur le fond de sa couleur), Visites et Patients. Puis la question
    bonus (combien de patients sont atteints ?) et la case pour proposer le patient zéro.
 3. **Le bilan** : l'histoire complète et ce que le joueur a appris. Il est chiffré : il s'ouvre avec la bonne
@@ -72,7 +72,7 @@ GitHub Pages met ensuite quelques minutes à servir la nouvelle version.
 
 ## Tester
 
-Après le générateur, ouvrir `tests/tests.html` dans un navigateur. La page doit afficher « OK : 64 tests ».
+Après le générateur, ouvrir `tests/tests.html` dans un navigateur. La page doit afficher « OK : 66 tests ».
 
 Les tests confrontent le moteur de recherche à ce que le générateur a écrit dans chaque compte rendu. Ils
 vérifient aussi que la solution est unique, que les trois pièges (négation, signes incomplets, synonymes)

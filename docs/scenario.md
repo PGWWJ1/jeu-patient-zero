@@ -94,7 +94,7 @@ le découpage en phrases est donc sans ambiguïté.
 | 20 pyélonéphrites ou pneumopathies chez des patients neuropathes | mars à juin | 40,1 à 40,8 °C et réflexe aboli, mais pas de plaques (parfois « Pas de PRD ») |
 
 Avec deux critères sur trois, la sélection garde tous les malades et une vingtaine de non-malades : l'entonnoir
-affiche une spécificité inférieure à 100 % tant qu'un critère manque. Ces leurres sont tirés à part par le
+affiche une précision inférieure à 100 % tant qu'un critère manque. Ces leurres sont tirés à part par le
 générateur : les régler ne change pas le reste des données.
 
 ## Objectifs pédagogiques
@@ -110,9 +110,10 @@ générateur : les régler ne change pas le reste des données.
 
 ## Méthode proposée aux joueurs
 
-1. Repérer tous les malades : une sélection dont la sensibilité et la spécificité approchent 100 %. L'entonnoir
-   les affiche à chaque étape, calculées sur les visites (malade = patient atteint du Nova-virus). Question
-   bonus : combien de patients sont atteints ?
+1. Repérer tous les malades : une sélection dont le rappel et la précision approchent 100 %. L'entonnoir les
+   affiche à chaque étape, calculés sur les visites (malade = patient atteint du Nova-virus) : le rappel est la
+   part des visites de malades que la sélection garde, la précision la part des visites sélectionnées qui sont
+   des visites de malades. Question bonus : combien de patients sont atteints ?
 2. Trouver le patient zéro : parmi les malades, ce qui le distingue des autres.
 3. Vérifier ses comptes rendus avant de proposer.
 
@@ -142,7 +143,7 @@ Réponses du jeu à la question bonus :
 | Le nombre de patients malades | « Bravo ! … » |
 | Le nombre de visites des malades | Un malade peut venir plusieurs fois : compter les patients |
 | Un autre nombre, sélection parfaite | Lire le nombre de patients dans l'entonnoir |
-| Un autre nombre, sélection incomplète | Viser 100 % de sensibilité et de spécificité, puis compter les patients |
+| Un autre nombre, sélection incomplète | Viser 100 % de rappel et de précision, puis compter les patients |
 
 Réponses du jeu à une proposition :
 
