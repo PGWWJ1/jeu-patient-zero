@@ -38,8 +38,9 @@
       frappe la Karovia, un pays étranger.</p>
       <p>En France, des malades arrivent aux urgences avec des signes inhabituels. Personne ne sait encore les
       reconnaître : ils repartent avec des diagnostics flous.</p>
-      <p>Le <strong>5 mai 1975</strong>, un test est enfin validé. Dans le jeu, cette date s'appelle
-      <strong>T0</strong> : à partir de ce jour, les malades sont diagnostiqués. Avant, ils passaient inaperçus.</p>
+      <p>Le <strong>5 mai 1975</strong>, un test est enfin validé au CHU Bordeaux. Dans le jeu, cette date s'appelle
+      <strong>T0</strong> : à partir de ce jour, les malades testés sont diagnostiqués. Avant, ils passaient
+      inaperçus. Les autres CHU ne reçoivent le test que deux à cinq semaines plus tard.</p>
       <p>Les dossiers des urgences de 7 CHU, du 1<sup>er</sup> mars au 30 juin 1975, ont été numérisés pour
       l'enquête.</p>
     </div>
@@ -64,7 +65,7 @@
     <ol class="etapes-methode" id="methode">
       <li><strong>Repérer tous les malades.</strong> Construisez une sélection qui garde toutes les visites de malades
       du Nova-virus et écarte les autres. Dans l'entonnoir, poussez la sensibilité et la spécificité le plus près
-      possible de 100 %.</li>
+      possible de 100 %. Répondez alors à la question bonus : combien de patients sont atteints ?</li>
       <li><strong>Trouver le patient zéro.</strong> Parmi les malades, cherchez ce qui le distingue des autres.</li>
       <li><strong>Vérifier avant de proposer.</strong> Lisez ses comptes rendus : tout doit concorder avec
       l'histoire.</li>
@@ -74,7 +75,8 @@
   <div class="carte">
     <h2>Les cas détectés par le test</h2>
     <div id="courbe" class="courbe"></div>
-    <p class="discret">Chaque barre compte les nouveaux cas détectés par le test dans la semaine.</p>
+    <p class="discret">Chaque barre compte les nouveaux cas détectés par le test dans la semaine. Les malades qui
+    n'ont pas eu le test n'y figurent pas.</p>
   </div>
 
   <div class="carte">
@@ -126,7 +128,8 @@
       <details class="carte repliable" open>
         <summary><i class="fa-solid fa-magnifying-glass"></i> Recherche dans les comptes rendus</summary>
         <p class="aide">Chaque recherche lit l'anamnèse. Les termes d'une même recherche sont des synonymes : un
-        seul suffit. Les accents, les majuscules et le pluriel ne comptent pas.</p>
+        seul suffit. Les accents, les majuscules et le pluriel ne comptent pas. Un terme trouve aussi les mots qui
+        commencent par lui : « céphal » trouve « céphalées ».</p>
         <div id="criteres"></div>
         <button class="bouton secondaire" id="ajouter-critere"><i class="fa-solid fa-plus"></i> Ajouter une recherche</button>
       </details>
@@ -162,6 +165,17 @@
         <div id="vue-cr"></div>
         <div id="vue-visites" hidden></div>
         <div id="vue-patients" hidden></div>
+      </section>
+
+      <section class="carte bonus" id="bonus">
+        <h2><i class="fa-solid fa-users"></i> Question bonus</h2>
+        <p>Avant de proposer le patient zéro : combien de <strong>patients</strong> sont atteints par le
+        Nova-virus ?</p>
+        <form class="ligne" id="form-bonus">
+          <input id="bonus-reponse" inputmode="numeric" placeholder="Nombre de patients" autocomplete="off" aria-label="Nombre de patients atteints">
+          <button class="bouton principal" type="submit">Vérifier</button>
+        </form>
+        <div id="bonus-retour" class="retour" aria-live="polite"></div>
       </section>
 
       <section class="carte proposer" id="proposer">

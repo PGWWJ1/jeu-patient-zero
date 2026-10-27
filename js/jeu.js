@@ -460,7 +460,23 @@
       + (affiche === attendu ? 'c\'est ce chiffre qu\'il faut taper.' : m.indice);
   });
 
-  // --- Proposition et bilan --------------------------------------------------------------------------------
+  // --- Question bonus, proposition et bilan ----------------------------------------------------------------
+
+  $('form-bonus').addEventListener('submit', async e => {
+    e.preventDefault();
+    const retour = $('bonus-retour');
+    const r = await E.verifierNombreMalades(base, $('bonus-reponse').value, resultat.lignes);
+    const messages = {
+      format: ['ko', 'Tapez un nombre de patients, en chiffres.'],
+      juste: ['ok', `Bravo ! ${r.n} patients ont eu le Nova-virus entre mars et juin 1975. Reste à trouver celui qui l'a ramené en France.`],
+      visites: ['info', `${r.n}, c'est le nombre de visites des malades. Un malade peut venir plusieurs fois aux urgences : comptez les patients.`],
+      lire: ['ko', "Ce n'est pas le bon nombre. Votre sélection garde exactement les malades : lisez son nombre de patients dans l'entonnoir."],
+      selection: ['ko', "Ce n'est pas le bon nombre. Votre sélection ne garde pas encore exactement les malades : visez 100 % de sensibilité et 100 % de spécificité, puis comptez les patients."],
+    };
+    const [classe, texte] = messages[r.statut];
+    retour.className = 'retour ' + classe;
+    retour.textContent = texte;
+  });
 
   $('form-proposition').addEventListener('submit', async e => {
     e.preventDefault();
@@ -546,6 +562,8 @@
     memoire.ecrire('pz-trouve', null);
     changerMission(0);
     toutEffacer();
+    $('bonus-reponse').value = '';
+    $('bonus-retour').textContent = '';
     $('proposition').value = '';
     $('proposition-retour').textContent = '';
     allerA('affaire');

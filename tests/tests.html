@@ -37,8 +37,11 @@
 
   // --- Moteur de recherche --------------------------------------------------------------------------------
   test('accents et majuscules', contient('Réflexe rotulien ABOLI.', ['reflexe rotulien aboli']));
-  test('mot entier : rouge ne trouve pas rougeole', !contient('Suspicion de rougeole.', ['rouge']));
-  test('préfixe : rouge* trouve rougeole', contient('Suspicion de rougeole.', ['rouge*']));
+  test('début de mot : ROT trouve rotulien', contient('Réflexe rotulien aboli.', ['ROT']));
+  test('début de mot seulement : otulien ne trouve pas rotulien', !contient('Réflexe rotulien aboli.', ['otulien']));
+  test('chaque mot du terme est un début de mot', contient('Réflexe rotulien aboli.', ['reflex rot abol'])
+    && !contient('Réflexe rotulien présent.', ['rot abol']));
+  test('étoile finale ignorée : rouge* trouve rougeole', contient('Suspicion de rougeole.', ['rouge*']));
   test('pluriel dans les deux sens', contient('Plaques rouges douloureuses.', ['plaque rouge douloureuse'])
     && contient('ROT aboli.', ['ROT abolis']));
   test('apostrophe', contient("Pas d'antécédent notable.", ["pas d'antecedent"]));
@@ -128,6 +131,31 @@
     `${fin.sensibilite} / ${fin.specificite}`);
   const fievre = E.entonnoir(base, Object.assign(E.etatVide(), requetes.temperature_40)).marches[1];
   test('fièvre seule : sensible mais pas spécifique', fievre.sensibilite === 1 && fievre.specificite < 1);
+  const deuxSignes = {
+    'fièvre et plaques': { temperatureMin: '40', criteres: plaquesAffirmees },
+    'fièvre et réflexe': { temperatureMin: '40', criteres: [reflexe] },
+    'plaques et réflexe': { criteres: [...plaquesAffirmees, reflexe] },
+  };
+  for (const [nom, etat] of Object.entries(deuxSignes)) {
+    const m = E.entonnoir(base, Object.assign(E.etatVide(), etat)).marches.at(-1);
+    test(`deux signes (${nom}) : tous les malades, et des non-malades`, m.sensibilite === 1 && m.specificite < 1,
+      `${m.sensibilite} / ${m.specificite}`);
+  }
+  const positif = E.entonnoir(base, Object.assign(E.etatVide(), { test: 'positif' })).marches[1];
+  test('test positif : spécifique, mais des malades n\'ont pas eu le test', positif.specificite === 1 && positif.sensibilite < 1,
+    `${positif.sensibilite} / ${positif.specificite}`);
+  test('des malades sans test après T0 (le test arrive plus tard dans certains CHU)',
+    base.visites.some(v => v.malade && v.date >= base.meta.t0 && v.test_nova === 'non disponible'));
+
+  const bonus = async (saisie, lignes = []) => (await E.verifierNombreMalades(base, saisie, lignes)).statut;
+  const selectionParfaite = E.entonnoir(base, Object.assign(E.etatVide(), requetes.trois_signes)).lignes;
+  test('question bonus : le nombre de patients malades est accepté', await bonus(String(A.malades.length)) === 'juste');
+  test('question bonus : le nombre de visites des malades est signalé',
+    A.trois_signes.length !== A.malades.length && await bonus(String(A.trois_signes.length)) === 'visites');
+  test('question bonus : nombre faux avec une sélection parfaite', await bonus('1', selectionParfaite) === 'lire');
+  test('question bonus : nombre faux avec une sélection incomplète', await bonus('1', base.visites) === 'selection');
+  test('question bonus : saisie qui n\'est pas un nombre', await bonus('beaucoup') === 'format');
+  test('la liste des empreintes ne donne pas le nombre de malades', base.verification.malades.length !== A.malades.length);
 
   const statut = async etat => (await E.verifierProposition(base, premierPatient(etat))).statut;
   test('piège de la négation : Karovia + plaques sans lien de phrase → non-malade',
@@ -135,7 +163,8 @@
   test('piège des signes incomplets : fièvre + plaques sans réflexe → non-malade',
     await statut({ temperatureMin: '40', criteres: plaquesAffirmees }) === 'sain');
   test('piège des synonymes : formes complètes seulement → malade contaminé en France',
-    await statut({ temperatureMin: '40', criteres: [{ termes: ['plaques rouges douloureuses'] }, { termes: ['réflexe rotulien aboli'] }] }) === 'malade');
+    await statut({ temperatureMin: '40', criteres: [{ termes: ['plaques rouges douloureuses'], phrase: 'A' },
+      { termes: NEGATIONS, exclure: true, phrase: 'A' }, { termes: ['réflexe rotulien aboli'] }] }) === 'malade');
   test('tous les malades sont reconnus', (await Promise.all(A.malades.map(id => E.verifierProposition(base, id))))
     .every(r => r.statut === 'malade' || r.id === A.patient_zero));
   test('identifiant inconnu', (await E.verifierProposition(base, 'P9999')).statut === 'inconnu');

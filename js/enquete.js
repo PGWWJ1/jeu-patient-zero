@@ -233,6 +233,20 @@
     base.verite = { malades: nbMalades, sains: base.visites.length - nbMalades };
   }
 
+  /* Question bonus : combien de patients ont le Nova-virus ? Statut : format, juste, visites (le joueur a donné le
+   * nombre de visites des malades), lire (sa sélection garde exactement les malades, mais il n'a pas tapé son
+   * nombre de patients) ou selection (sa sélection n'est pas encore parfaite). « lignes » : la sélection affichée. */
+  async function verifierNombreMalades(base, saisie, lignes) {
+    const texte = String(saisie || '').trim();
+    if (!/^\d+$/.test(texte)) return { statut: 'format' };
+    if (!base.verite) await preparerVerite(base);
+    const n = Number(texte);
+    if (n === base.patients.filter(p => p.malade).length) return { statut: 'juste', n };
+    if (n === base.verite.malades) return { statut: 'visites', n };
+    const { sensibilite, specificite } = indicateurs(base, lignes);
+    return { statut: sensibilite === 1 && specificite === 1 ? 'lire' : 'selection', n };
+  }
+
   // Inverse de chiffrer() dans generateur/generer.py : flux SHA-256 dérivé de la clé, combiné par OU exclusif.
   async function dechiffrer(code64, cle) {
     const code = Uint8Array.from(atob(code64), c => c.charCodeAt(0));
@@ -264,7 +278,7 @@
 
   global.Enquete = {
     charger, etatVide, etapes, entonnoir, valeursDistinctes, courbe, MISSIONS, reponseMission,
-    verifierProposition, preparerVerite, dechiffrerBilan, ouvrirBilanAnimateur, normaliserId, dateFr, nombreFr,
-    lireNombre, nombrePatients,
+    verifierProposition, verifierNombreMalades, preparerVerite, dechiffrerBilan, ouvrirBilanAnimateur, normaliserId,
+    dateFr, nombreFr, lireNombre, nombrePatients,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

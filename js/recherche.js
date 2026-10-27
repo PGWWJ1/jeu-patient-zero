@@ -1,9 +1,10 @@
 /* Moteur de recherche dans le texte des comptes rendus.
  *
  * Le texte et les termes sont normalisés de la même façon (minuscules, sans accents, apostrophes et tirets
- * remplacés par des espaces), puis découpés en mots. Un terme est trouvé quand tous ses mots se suivent, en mots
- * entiers et dans la même phrase : « rouge » ne trouve pas « rougeole ». Le pluriel en -s ou -x est accepté dans
- * les deux sens. Un « * » final cherche le début d'un mot : « rouge* » trouve « rougeole ».
+ * remplacés par des espaces), puis découpés en mots. Un terme est trouvé quand tous ses mots se suivent, dans la
+ * même phrase. Chaque mot du terme trouve les mots qui commencent par lui : « ROT » trouve « rotulien », mais
+ * « otulien » ne trouve pas « rotulien ». Un terme au pluriel en -s ou -x trouve aussi le singulier : « abolis »
+ * trouve « aboli ». La ponctuation des termes est ignorée : « rouge* » cherche « rouge ».
  * Les phrases sont découpées sur . ! ? ; et les retours à la ligne.
  * Le surlignage réutilise exactement les correspondances du filtrage : les deux ne peuvent pas diverger.
  */
@@ -42,18 +43,13 @@
   }
 
   function compilerTerme(terme) {
-    let source = String(terme || '').trim();
-    const prefixe = source.endsWith('*');
-    if (prefixe) source = source.replace(/\*+$/, '');
-    const mots = preparer(source).mots.map(m => m.forme);
-    return mots.length ? { texte: String(terme).trim(), mots, prefixe } : null;
+    const mots = preparer(terme).mots.map(m => m.forme);
+    return mots.length ? { texte: String(terme).trim(), mots } : null;
   }
 
-  function memeMot(motTexte, motTerme, prefixe) {
-    if (prefixe) return motTexte.startsWith(motTerme);
-    return motTexte === motTerme
-      || motTexte === motTerme + 's' || motTexte === motTerme + 'x'
-      || motTerme === motTexte + 's' || motTerme === motTexte + 'x';
+  // Le début du mot du texte, ou son singulier quand le terme est au pluriel.
+  function memeMot(motTexte, motTerme) {
+    return motTexte.startsWith(motTerme) || motTerme === motTexte + 's' || motTerme === motTexte + 'x';
   }
 
   // Toutes les occurrences d'un terme compilé : [{ phrase, debut, fin }], positions dans le texte d'origine.
@@ -64,8 +60,7 @@
       let trouve = true;
       for (let k = 0; k < n && trouve; k++) {
         const mot = prep.mots[i + k];
-        trouve = mot.phrase === prep.mots[i].phrase
-          && memeMot(mot.forme, terme.mots[k], terme.prefixe && k === n - 1);
+        trouve = mot.phrase === prep.mots[i].phrase && memeMot(mot.forme, terme.mots[k]);
       }
       if (trouve) resultat.push({ phrase: prep.mots[i].phrase, debut: prep.mots[i].debut, fin: prep.mots[i + n - 1].fin });
     }

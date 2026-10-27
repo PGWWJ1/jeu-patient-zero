@@ -24,6 +24,7 @@ import os
 import random
 import re
 import sys
+import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -35,7 +36,7 @@ SEL = "nova-1975"
 
 DEBUT = date(1975, 3, 1)
 FIN = date(1975, 6, 30)
-T0 = date(1975, 5, 5)          # validation du test
+T0 = date(1975, 5, 5)          # validation du test, au CHU Bordeaux
 MESURES = date(1975, 5, 19)    # mesures d'isolement
 PZ_DEBUT = date(1975, 3, 18)   # premiers signes du patient zéro
 PZ_HOSPITALISATION = date(1975, 3, 24)
@@ -44,6 +45,7 @@ INCUBATION = (14, 28)
 CONTAGIOSITE = 7
 R_AVANT = 4.0
 R_APRES = 0.7
+PART_MEME_VILLE = 0.6          # part des contaminations dans la ville du malade ; les autres en voyage
 NB_PATIENTS_FOND = 950
 
 VILLES = {
@@ -54,6 +56,18 @@ VILLES = {
     "Nantes": ("CHU Nantes", ["Dr Guérin", "Dr Perrin", "Dr Morel"]),
     "Marseille": ("CHU Marseille", ["Dr Faure", "Dr Blanc", "Dr Garnier"]),
     "Toulouse": ("CHU Toulouse", ["Dr Mercier", "Dr Roux", "Dr Vincent"]),
+}
+
+# Arrivée du test dans chaque CHU. Validé à Bordeaux, où sont la plupart des malades, il gagne ensuite les autres
+# CHU : avant son arrivée, les malades repartent sans diagnostic et la colonne test_nova vaut « non disponible ».
+ARRIVEE_TEST = {
+    "Bordeaux": T0,
+    "Paris": date(1975, 5, 19),
+    "Lyon": date(1975, 5, 23),
+    "Lille": date(1975, 5, 28),
+    "Nantes": date(1975, 6, 2),
+    "Marseille": date(1975, 6, 6),
+    "Toulouse": date(1975, 6, 11),
 }
 
 # Formes des signes : (phrase, numéro de la forme). Les formes de référence sont dans docs/scenario.md.
@@ -82,6 +96,13 @@ PHRASES_REFLEXE = [
     ("ROT abolis aux deux genoux.", 2),
 ]
 PHRASES_REFLEXE_NORMAL = ["Réflexe rotulien présent.", "ROT présents et symétriques."]
+
+# Les signes du Nova-virus dans une visite. Seuls les malades ont les trois.
+SIGNES = {
+    "fièvre ≥ 40 °C": lambda v: v.temperature >= 40.0,
+    "plaques": lambda v: any(m.startswith("plaques+") for m in v.marques),
+    "réflexe aboli": lambda v: any(m.startswith("reflexe+") for m in v.marques),
+}
 
 PAYS_VOYAGE = ["Valtoria", "Nordhestan", "Loméria", "Estovia"]
 
@@ -112,7 +133,7 @@ class Visite:
 
     @property
     def test(self) -> str:
-        if self.jour < T0:
+        if self.jour < ARRIVEE_TEST[self.patient.ville]:
             return "non disponible"
         if self.diagnostic == "Nova-virus":
             return "positif"
@@ -181,7 +202,7 @@ def simuler_epidemie(rng: random.Random) -> list[Malade]:
                 continue
             if m is pz:
                 ville = "Bordeaux"
-            elif rng.random() < 0.7:
+            elif rng.random() < PART_MEME_VILLE:
                 ville, lien = m.ville, rng.choice(["famille", "travail", "voisinage"])
             else:
                 ville, lien = rng.choice([v for v in VILLES if v != m.ville]), "voyage"
@@ -241,7 +262,7 @@ def visites_malade(rng: random.Random, m: Malade, p: Patient, medecins: list[str
     if rng.random() < 0.3:
         phrases.append(rng.choice(["Pas d'antécédent notable.", "Antécédent d'hypertension artérielle.",
                                    "Diabète de type 2.", "Tabagisme actif."]))
-    if j1 >= T0:
+    if j1 >= ARRIVEE_TEST[p.ville]:
         diagnostic = "Nova-virus"
         issue = rng.choices(["Hospitalisation en maladies infectieuses", "Transfert en réanimation",
                              "Retour à domicile avec isolement"], [70, 15, 15])[0]
@@ -261,8 +282,8 @@ def visites_malade(rng: random.Random, m: Malade, p: Patient, medecins: list[str
     signes, marques2 = signes_malade(rng, t2, deja)
     phrases2 = [rng.choice(["Revient pour aggravation.", "Nouvelle consultation pour aggravation de l'état général."])]
     phrases2 += signes + rng.sample(["Confusion.", "Asthénie sévère.", "Douleurs intenses."], rng.randint(1, 2))
-    diagnostic2 = "Nova-virus" if j2 >= T0 else rng.choice(["Fièvre d'origine indéterminée",
-                                                          "Syndrome fébrile éruptif"])
+    diagnostic2 = "Nova-virus" if j2 >= ARRIVEE_TEST[p.ville] else rng.choice(["Fièvre d'origine indéterminée",
+                                                                              "Syndrome fébrile éruptif"])
     issue2 = rng.choices(["Hospitalisation en maladies infectieuses", "Transfert en réanimation"], [75, 25])[0]
     v2 = Visite(p, j2, t2, rng.randint(85, 110), rng.randint(110, 145), diagnostic2, issue2,
                 rng.choice(medecins), phrases2, marques2)
@@ -446,11 +467,83 @@ def leurres(rng: random.Random, rng_entrainement: random.Random) -> list[Patient
     return [paludisme, toxidermie, vascularite, gastro]
 
 
+# --- Non-malades qui ont deux des trois signes ----------------------------------------------------------
+#
+# Chaque famille a deux signes du virus et pas le troisième : un joueur qui oublie un critère garde ces visites, et
+# l'entonnoir le montre par une spécificité inférieure à 100 %. Les signes s'écrivent avec les mêmes formes que
+# chez les malades.
+
+NB_PAR_FAMILLE = 20
+PLAQUES_JAMBE = [
+    ("Plaques rouges douloureuses de la jambe droite.", 0),
+    ("Plaques rouges douloureuses du mollet gauche.", 0),
+    ("PRD de la jambe gauche.", 1),
+    ("PRD des deux jambes.", 1),
+    ("Plaques rouges dlr de la cuisse droite.", 2),
+    ("Plaques rouges dlr du mollet droit.", 2),
+]
+# Un réflexe aboli sans le virus : neuropathie du diabète ou de l'alcool, connue avant la visite.
+TERRAINS_NEUROPATHIE = ["Diabète de type 2 ancien.", "Neuropathie diabétique connue.", "Éthylisme chronique.",
+                        "Diabète traité par insuline depuis 15 ans."]
+
+
+def presque_malade(rng: random.Random, rng_entrainement: random.Random, manque: str) -> Patient:
+    """Non-malade qui a deux des trois signes. « manque » dit lequel lui manque :
+    - fievre : érysipèle chez un patient neuropathe, plaques et réflexe aboli, moins de 40 °C ;
+    - reflexe : érysipèle ou toxidermie à plus de 40 °C, réflexe présent ou non examiné ;
+    - plaques : pyélonéphrite ou pneumopathie à plus de 40 °C chez un patient neuropathe."""
+    neuropathe = manque != "reflexe"
+    p = Patient(rng.choice("FM"), rng.randint(50, 88) if neuropathe else rng.randint(18, 85), rng.choice(list(VILLES)))
+    jour = jours(DEBUT, rng.randint(0, (FIN - DEBUT).days))
+    depuis = duree(rng.randint(1, 5))
+    t = round(rng.uniform(38.5, 39.8) if manque == "fievre" else rng.uniform(40.1, 40.8), 1)
+    marques: set[str] = set()
+    if manque == "plaques":
+        diagnostic = rng.choice(["Pyélonéphrite", "Pneumopathie"])
+        phrases = ([f"Brûlures urinaires et frissons depuis {depuis}.", f"Fièvre à {fr(t)} °C.", "Douleur lombaire."]
+                   if diagnostic == "Pyélonéphrite" else
+                   [f"Toux grasse et essoufflement depuis {depuis}.", f"Fièvre à {fr(t)} °C.",
+                    "Crépitants à l'auscultation."])
+    elif manque == "reflexe" and rng.random() < 0.4:
+        diagnostic = "Toxidermie"
+        plaque, forme = rng.choice(PHRASES_PLAQUES)
+        phrases = ["Éruption apparue après un traitement antibiotique.", f"Fièvre à {fr(t)} °C.", plaque]
+    else:
+        diagnostic = rng.choice(["Érysipèle", "Dermohypodermite"])
+        plaque, forme = rng.choice(PLAQUES_JAMBE)
+        phrases = [f"Douleur et gonflement de la jambe depuis {depuis}.", f"Fièvre à {fr(t)} °C.", plaque]
+        if rng.random() < 0.5:
+            phrases.append("Porte d'entrée cutanée au pied.")
+    if manque != "plaques":
+        marques |= {f"plaques+{forme}", "eruption"}
+    if neuropathe:
+        phrase, forme = rng.choice(PHRASES_REFLEXE)
+        phrases.append(phrase)
+        marques.add(f"reflexe+{forme}")
+        if rng.random() < 0.7:
+            phrases.append(rng.choice(TERRAINS_NEUROPATHIE))
+    elif rng.random() < 0.6:
+        phrases.append(rng.choice(PHRASES_REFLEXE_NORMAL))
+    if manque == "plaques" and rng.random() < 0.5:
+        phrase, forme = rng.choice(PHRASES_PLAQUES_NIEES)
+        phrases.append(phrase)
+        marques.add(f"plaques-{forme}")
+    medecins = VILLES[p.ville][1]
+    issue = rng.choices(["Hospitalisation", "Retour à domicile"], [60, 40])[0]
+    p.visites = [Visite(p, jour, t, rng.randint(100, 140), rng.randint(95, 125), diagnostic, issue,
+                        rng.choice(medecins), phrases, marques)]
+    retour = jours(jour, rng.randint(5, 10))
+    if rng.random() < 0.3 and retour <= FIN:
+        p.visites.append(visite_fond(rng, rng_entrainement, p, retour, medecins, "divers", None))
+    return p
+
+
 # --- Assemblage -----------------------------------------------------------------------------------------
 
 def generer() -> dict:
     rng = random.Random(GRAINE)
     rng_entrainement = random.Random(GRAINE + 1)
+    rng_presque = random.Random(GRAINE + 2)   # régler ces leurres ne change pas le reste des données
     malades = simuler_epidemie(rng)
     patients: list[Patient] = []
 
@@ -468,6 +561,8 @@ def generer() -> dict:
             patients.append(p)
 
     patients += leurres(rng, rng_entrainement)
+    patients += [presque_malade(rng_presque, rng_entrainement, manque)
+                 for manque in ("fievre", "reflexe", "plaques") for _ in range(NB_PAR_FAMILLE)]
 
     poids_motifs = {k: v["poids"] for k, v in MOTIFS.items()}
     for _ in range(NB_PATIENTS_FOND):
@@ -497,9 +592,22 @@ def generer() -> dict:
 
 # --- Vérifications --------------------------------------------------------------------------------------
 
+def signes(v: Visite) -> list[str]:
+    return [nom for nom, present in SIGNES.items() if present(v)]
+
+
 def trois_signes(v: Visite) -> bool:
-    return (v.temperature >= 40.0 and any(m.startswith("plaques+") for m in v.marques)
-            and any(m.startswith("reflexe+") for m in v.marques))
+    return len(signes(v)) == len(SIGNES)
+
+
+def deux_signes(visites: list[Visite]) -> dict[str, list[Visite]]:
+    """Visites de non-malades qui ont deux des trois signes, rangées selon le signe qui leur manque."""
+    familles = {nom: [] for nom in SIGNES}
+    for v in visites:
+        presents = signes(v)
+        if v.patient.malade is None and len(presents) == len(SIGNES) - 1:
+            familles[next(nom for nom in SIGNES if nom not in presents)].append(v)
+    return familles
 
 
 def verifier(monde: dict) -> dict:
@@ -541,6 +649,10 @@ def verifier(monde: dict) -> dict:
     exiger(any(v.temperature >= 40 and any(m.startswith("plaques+") for m in v.marques)
                and not any(m.startswith("reflexe+") for m in v.marques) for v in avant),
            "le leurre des signes incomplets manque")
+    for manque, liste in deux_signes(visites).items():
+        exiger(len(liste) >= 10, f"{len(liste)} non-malades ont deux signes sans « {manque} » : 10 au moins")
+    sans_test = [m for m in visibles if all(v.test == "non disponible" for v in m.patient.visites)]
+    exiger(len(sans_test) >= len(visibles) // 4, f"seulement {len(sans_test)} malades sans test sur {len(visibles)}")
 
     semaines = courbe(visites)
     pic = max(range(len(semaines)), key=lambda i: semaines[i][1])
@@ -549,7 +661,7 @@ def verifier(monde: dict) -> dict:
 
     if erreurs:
         sys.exit("Scénario non respecté :\n- " + "\n- ".join(erreurs))
-    return {"pz": pz, "premiere": premiere, "visibles": visibles, "semaines": semaines}
+    return {"pz": pz, "premiere": premiere, "visibles": visibles, "semaines": semaines, "sans_test": sans_test}
 
 
 def lundi(d: date) -> date:
@@ -571,6 +683,9 @@ def courbe(visites: list[Visite]) -> list[tuple[date, int]]:
 
 
 # --- Sorties --------------------------------------------------------------------------------------------
+
+NB_EMPREINTES_MALADES = 300
+
 
 def empreinte(texte: str) -> str:
     return hashlib.sha256(texte.encode("utf-8")).hexdigest()
@@ -620,9 +735,10 @@ LEXIQUE = """## Ce que vous avez fait
 - **Filtrer une table.** Chaque filtre sur la table Visites retire des lignes. L'entonnoir montre combien il en reste à chaque étape.
 - **Relier des tables.** Une visite appartient à un patient et a un compte rendu. On compte les patients à partir des visites retenues.
 - **Mesurer sa sélection.** La sensibilité dit quelle part des malades la sélection garde, la spécificité quelle part des non-malades elle écarte. On les pousse toutes deux vers 100 % avant de chercher le patient zéro.
-- **Chercher dans du texte libre.** Un signe s'écrit de plusieurs façons (« PRD », « plaques rouges dlr », « ROT abolis ») : il faut prévoir les synonymes et les abréviations.
+- **Chercher dans du texte libre.** Un signe s'écrit de plusieurs façons (« PRD », « plaques rouges dlr », « ROT abolis ») : il faut prévoir les synonymes et les abréviations. Un début de mot trouve les mots plus longs (« ROT » trouve « rotulien »), mais pas l'inverse : « réflexe rotulien » ne trouve pas « ROT abolis ».
 - **Écarter les négations.** « Pas de PRD » contient « PRD ». Chercher dans la même phrase permet d'écarter les signes niés sans perdre les autres.
-- **Croiser les critères.** Un seul signe ne suffit pas : un paludisme donne une forte fièvre, une toxidermie des plaques douloureuses.
+- **Croiser les critères.** Deux signes ne suffisent pas : un érysipèle chez un diabétique donne des plaques douloureuses et un réflexe aboli, sans fièvre à 40 °C. Seuls les trois signes ensemble désignent le Nova-virus.
+- **Se méfier des étiquettes.** Le test et le diagnostic ne couvrent pas tous les malades : le test n'existait pas avant le 5 mai, et certains CHU ne l'ont reçu qu'en juin. Les signes notés dans les comptes rendus, eux, sont là pour tous.
 - **Remonter le temps.** Le test date du 5 mai, mais le virus circulait depuis mars. L'incubation de 2 à 4 semaines relie chaque malade à celui qui l'a contaminé."""
 
 
@@ -635,6 +751,7 @@ def bilan(monde: dict, verif: dict) -> str:
     proches = [m.patient for m in monde["malades"] if m.generation == 1 and m.patient and m.patient.visites]
     debuts = sorted(m.debut for m in monde["malades"] if m.generation == 1 and m.patient and m.patient.visites)
     avant_t0 = sum(1 for m in verif["visibles"] if m.debut < T0)
+    autres_chu = [d for d in ARRIVEE_TEST.values() if d != T0]
     lignes = [
         f"## Le patient zéro est {pz.id}",
         "",
@@ -648,8 +765,11 @@ def bilan(monde: dict, verif: dict) -> str:
         "- **Le 24 mars**, il revient, plus grave, et il est hospitalisé.",
         f"- Entre-temps, il a contaminé {len(proches)} proches ({', '.join(p.id for p in proches)}). Ils tombent "
         f"malades entre le {date_fr(debuts[0])} et le {date_fr(debuts[-1])}, 2 à 4 semaines plus tard.",
-        f"- **Le 5 mai**, quand le test arrive, {avant_t0} personnes ont déjà été malades sans diagnostic. "
-        f"Au 30 juin, on compte {len(verif['visibles'])} malades.",
+        f"- **Le 5 mai**, quand le test est validé au CHU Bordeaux, {avant_t0} personnes ont déjà été malades sans "
+        f"diagnostic. Les autres CHU ne le reçoivent qu'entre le {date_fr(min(autres_chu))} et le "
+        f"{date_fr(max(autres_chu))}.",
+        f"- Au 30 juin, on compte {len(verif['visibles'])} malades. {len(verif['sans_test'])} d'entre eux n'ont jamais "
+        "eu le test : seuls leurs signes permettent de les retrouver.",
         "",
         "## Pourquoi c'est lui",
         "",
@@ -660,16 +780,27 @@ def bilan(monde: dict, verif: dict) -> str:
     return "\n".join(lignes)
 
 
+def mots(texte: str) -> list[str]:
+    """Mots d'un texte, normalisés comme dans js/recherche.js : minuscules, sans accents ni ponctuation."""
+    texte = texte.replace("œ", "oe").replace("Œ", "oe").replace("æ", "ae").replace("Æ", "ae")
+    sans_accents = "".join(c for c in unicodedata.normalize("NFD", texte) if not unicodedata.combining(c))
+    return re.findall(r"[a-z0-9]+", sans_accents.lower())
+
+
+def contient(v: Visite, *termes: str) -> bool:
+    """Le compte rendu contient-il l'un de ces termes d'un seul mot ? Même règle que js/recherche.js : un terme
+    trouve les mots qui commencent par lui, et son singulier."""
+    return any(m.startswith(t) or t in (m + "s", m + "x") for m in mots(" ".join(v.phrases)) for t in termes)
+
+
 def missions_attendues(visites: list[Visite]) -> list[tuple[str, int]]:
     """Réponses des missions d'entraînement (js/enquete.js), recalculées ici sans le moteur de recherche."""
-    texte = lambda v: " ".join(v.phrases).lower()
     lille_avril = [v for v in visites if v.patient.ville == "Lille" and date(1975, 4, 1) <= v.jour <= date(1975, 4, 30)]
     return [
         ("Visites au CHU Lille en avril 1975", len(lille_avril)),
         ("Patients différents parmi ces visites", len({v.patient.id for v in lille_avril})),
-        ("Visites dont le compte rendu contient « chute »", sum(1 for v in visites if re.search(r"\bchute\b", texte(v)))),
-        ("Avec « courbatures » ou « myalgies »",
-         sum(1 for v in visites if re.search(r"\b(courbatures?|myalgies?)\b", texte(v)))),
+        ("Visites dont le compte rendu contient « chute »", sum(1 for v in visites if contient(v, "chute"))),
+        ("Avec « courbatures » ou « myalgies »", sum(1 for v in visites if contient(v, "courbatures", "myalgies"))),
         ("« Douleur thoracique » sans négation dans la même phrase", sum(1 for v in visites if "thorax+" in v.marques)),
     ]
 
@@ -681,6 +812,11 @@ def table(colonnes: list[str], lignes: list[list]) -> dict:
 def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
     patients, visites, pz = monde["patients"], monde["visites"], verif["pz"]
     malades_ids = sorted(m.patient.id for m in verif["visibles"])
+    # Des empreintes qui ne correspondent à aucun patient complètent la liste des malades : sa longueur ne donne pas
+    # la réponse à la question bonus.
+    assert len(malades_ids) <= NB_EMPREINTES_MALADES
+    empreintes_malades = sorted([empreinte(f"malade:{SEL}:{i}") for i in malades_ids]
+                                + [empreinte(f"leurre:{SEL}:{k}") for k in range(NB_EMPREINTES_MALADES - len(malades_ids))])
     donnees = {
         "meta": {"debut": DEBUT.isoformat(), "fin": FIN.isoformat(), "t0": T0.isoformat(), "graine": GRAINE},
         "patients": table(["id_patient", "sexe", "age", "ville"],
@@ -693,7 +829,7 @@ def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
         "verification": {
             "sel": SEL,
             "zero": empreinte(f"zero:{SEL}:{pz.id}"),
-            "malades": sorted(empreinte(f"malade:{SEL}:{i}") for i in malades_ids),
+            "malades": empreintes_malades,
             "bilan": chiffrer(bilan_complet(monde, verif), f"bilan:{SEL}:{pz.id}"),
             "bilan_animateur": chiffrer(bilan_complet(monde, verif), cle_animateur(mot_de_passe)),
             "iterations_animateur": ITERATIONS_ANIMATEUR,
@@ -726,9 +862,7 @@ def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
         "window.ATTENDU = " + json.dumps(attendu, ensure_ascii=False) + ";\n", encoding="utf-8")
 
     leurres_avant = [v for v in visites if v.jour < verif["premiere"].jour and v.patient.malade is None
-                     and ("karovia" in v.marques or (v.temperature >= 40 and any(m.startswith("plaques+")
-                                                                                 for m in v.marques))
-                          or {"plaques+2", "reflexe+0"} <= v.marques)]
+                     and ("karovia" in v.marques or len(signes(v)) >= 2)]
     solution = [
         "# Solution du jeu Patient Zéro",
         "",
@@ -745,13 +879,27 @@ def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
         "|---|---|---|---|---|---|---|",
     ]
     for v in leurres_avant:
-        piege = ("Karovia et « Pas de PRD » : négation" if "plaques-1" in v.marques
-                 else "plaques et fièvre, réflexe présent" if "plaques+0" in v.marques
-                 else "plaques et réflexe, fièvre < 40 °C" if "reflexe+0" in v.marques
-                 else "voyage en Karovia sans les signes")
+        presents = signes(v)
+        if "karovia" in v.marques:
+            piege = ("Karovia et plaques niées : négation" if any(m.startswith("plaques-") for m in v.marques)
+                     else "voyage en Karovia sans les signes")
+        else:
+            piege = " et ".join(presents) + ", sans " + next(nom for nom in SIGNES if nom not in presents)
         solution.append(f"| {v.id} | {v.patient.id} | {v.jour:%d/%m} | {VILLES[v.patient.ville][0]} | "
                         f"{fr(v.temperature)} | {v.diagnostic} | {piege} |")
     solution += [
+        "",
+        "## Question bonus",
+        "",
+        f"{len(verif['visibles'])} patients ont le Nova-virus, pour {len(attendu['trois_signes'])} visites. Le jeu "
+        "prévient le joueur qui donne le nombre de visites : un malade peut venir plusieurs fois.",
+        "",
+        "## Ce qui rend l'enquête difficile",
+        "",
+        "- Arrivée du test : " + ", ".join(f"{VILLES[ville][0]} le {date_fr(d)}" for ville, d in ARRIVEE_TEST.items())
+        + f". {len(verif['sans_test'])} malades n'ont jamais eu le test.",
+        "- Non-malades qui ont deux signes sur trois : "
+        + ", ".join(f"{len(liste)} visites sans « {manque} »" for manque, liste in deux_signes(visites).items()) + ".",
         "",
         "## Réponses des missions d'entraînement",
         "",
@@ -776,8 +924,9 @@ def main() -> None:
     verif = verifier(monde)
     ecrire(monde, verif, mot_de_passe)
     taille = (RACINE / "donnees.js").stat().st_size
-    print(f"{len(monde['patients'])} patients, {len(monde['visites'])} visites, {len(verif['visibles'])} malades ; "
-          f"patient zéro {verif['pz'].id} ; donnees.js {taille / 1024:.0f} Ko")
+    print(f"{len(monde['patients'])} patients, {len(monde['visites'])} visites, {len(verif['visibles'])} malades "
+          f"(dont {len(verif['sans_test'])} jamais testés) ; patient zéro {verif['pz'].id} ; "
+          f"donnees.js {taille / 1024:.0f} Ko")
     print("Cas détectés par semaine :", " ".join(str(n) for _, n in verif["semaines"]))
 
 

@@ -169,6 +169,8 @@ tbody tr:hover { background: var(--bleu-clair); }
 td.nombre { text-align: right; font-variant-numeric: tabular-nums; }
 .plus { text-align: center; margin-top: 10px; }
 
+.bonus { border-left: 6px solid var(--bleu); }
+.bonus h2 i { color: var(--bleu); margin-right: 4px; }
 .proposer { border: 2px solid var(--bleu); }
 .barre-resultat { display: none; }
 
