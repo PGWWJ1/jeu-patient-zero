@@ -29,7 +29,7 @@
   let applique = E.etatVide();  // les filtres appliqués : ceux de l'entonnoir et des résultats
   let resultat = E.entonnoir(base, applique);
   let vue = 'cr';               // onglet affiché : cr, ecartes-<numéro de l'étape>, visites ou patients
-  let ordre = 'asc';
+  let ordre = '';               // '' : non trié (les données sont livrées dans le désordre), asc ou desc par date
   let positions = {};           // rang du compte rendu affiché, par onglet
   let limiteVisites = PAR_PAGE;
   let limitePatients = PAR_PAGE;
@@ -247,7 +247,7 @@
   }
 
   function ordonner(lignes) {
-    return ordre === 'asc' ? lignes : [...lignes].reverse();
+    return ordre ? E.parDate(lignes, ordre) : lignes;
   }
 
   // 100 % seulement si la valeur est exacte : 99,6 % ne doit pas passer pour une sélection parfaite.
@@ -418,9 +418,12 @@
 
   function rendrePatients() {
     const parPatient = new Map();
+    // Les patients dans l'ordre de leur première visite affichée ; sans tri, la visite citée reste la plus ancienne.
     for (const v of ordonner(resultat.lignes)) {
       if (!parPatient.has(v.id_patient)) parPatient.set(v.id_patient, { patient: v.patient, visites: 0, premiere: v });
-      parPatient.get(v.id_patient).visites++;
+      const l = parPatient.get(v.id_patient);
+      l.visites++;
+      if (!ordre && v.date < l.premiere.date) l.premiere = v;
     }
     const lignes = [...parPatient.values()];
     if (!lignes.length) { $('vue-patients').innerHTML = AUCUN; return; }
@@ -432,7 +435,7 @@
     $('vue-patients').innerHTML = `
       <p class="discret">Patients qui ont au moins une visite retenue. Touchez une ligne pour lire le compte rendu de cette visite.</p>
       <div class="defilement"><table>
-        <thead><tr><th>Patient</th><th>Sexe</th><th>Âge</th><th>Ville</th><th>Visites retenues</th><th>${ordre === 'asc' ? 'Première' : 'Dernière'} visite retenue</th></tr></thead>
+        <thead><tr><th>Patient</th><th>Sexe</th><th>Âge</th><th>Ville</th><th>Visites retenues</th><th>${ordre === 'desc' ? 'Dernière' : 'Première'} visite retenue</th></tr></thead>
         <tbody>${corps}</tbody>
       </table></div>
       ${lignes.length > limitePatients ? `<div class="plus"><button class="bouton secondaire" data-plus="patients">Afficher ${Math.min(PAR_PAGE, lignes.length - limitePatients)} lignes de plus (${limitePatients} sur ${lignes.length})</button></div>` : ''}`;
@@ -577,7 +580,7 @@
       format: ['ko', 'Tapez un identifiant de patient, par exemple P0123.'],
       inconnu: ['ko', `${r.id} n'existe pas dans la table Patients.`],
       sain: ['ko', `${r.id} n'a pas le Nova-virus.`],
-      malade: ['info', `${r.id} a bien le Nova-virus, mais ce n'est pas ce patient qui l'a ramené en France.`],
+      malade: ['info', `${r.id} a bien le Nova-virus, mais ce n'est pas le patient zéro.`],
       zero: ['ok', `Bravo ! ${r.id} est bien le patient zéro.`],
     };
     const [classe, texte] = messages[r.statut];

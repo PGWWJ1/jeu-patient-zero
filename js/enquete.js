@@ -88,6 +88,12 @@
     return new Set(visites.map(v => v.id_patient)).size;
   }
 
+  // Les visites sont livrées dans le désordre. Tri par date, stable : à date égale, l'ordre des données est gardé.
+  function parDate(visites, sens = 'asc') {
+    const signe = sens === 'desc' ? -1 : 1;
+    return [...visites].sort((a, b) => signe * a.date.localeCompare(b.date));
+  }
+
   /* Rappel et précision d'une sélection de visites, par rapport aux visites des malades du Nova-virus :
    * rappel = part des visites de malades que la sélection garde ;
    * précision = part des visites de la sélection qui sont des visites de malades (null si la sélection est vide).
@@ -122,7 +128,8 @@
     return [...new Set(base.visites.map(v => v[colonne]))].sort((a, b) => a.localeCompare(b, 'fr'));
   }
 
-  // Nouveaux cas détectés par semaine : première visite avec un test positif de chaque patient.
+  // Nouveaux cas détectés par semaine : première visite avec un test positif de chaque patient. Les visites sont
+  // livrées dans le désordre : on les parcourt par date.
   function courbe(base) {
     const lundi = iso => {
       const d = new Date(iso + 'T12:00:00Z');
@@ -131,7 +138,7 @@
     };
     const vus = new Set();
     const compte = new Map();
-    for (const v of base.visites) {
+    for (const v of parDate(base.visites)) {
       if (v.test_nova !== 'positif' || vus.has(v.id_patient)) continue;
       vus.add(v.id_patient);
       const l = lundi(v.date);
@@ -212,7 +219,7 @@
     return m ? 'P' + m[1].padStart(4, '0') : null;
   }
 
-  // Statut : format, inconnu, sain, malade (contaminé en France) ou zero.
+  // Statut : format, inconnu, sain, malade (un autre malade que le patient zéro) ou zero.
   async function verifierProposition(base, saisie) {
     const id = normaliserId(saisie);
     if (!id) return { statut: 'format' };
@@ -281,6 +288,6 @@
   global.Enquete = {
     charger, etatVide, etapes, entonnoir, valeursDistinctes, courbe, MISSIONS, reponseMission,
     verifierProposition, verifierNombreMalades, preparerVerite, dechiffrerBilan, ouvrirBilanAnimateur, normaliserId,
-    dateFr, nombreFr, lireNombre, nombrePatients,
+    dateFr, nombreFr, lireNombre, nombrePatients, parDate,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

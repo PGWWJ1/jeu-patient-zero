@@ -112,9 +112,35 @@
   test('mission négation : le lien de phrase change le résultat',
     ids(sansLien).length < avecLien && avecLien < ids(brut).length, `sans lien ${ids(sansLien).length}, avec ${avecLien}, brut ${ids(brut).length}`);
 
-  const premierPatient = etat => E.entonnoir(base, Object.assign(E.etatVide(), etat)).lignes[0].id_patient;
+  // Les visites sont livrées dans le désordre : la plus ancienne d'une sélection se trouve en triant par date (puis
+  // par numéro de visite, comme le générateur).
+  const plusAncienne = lignes => [...lignes].sort((a, b) => a.date.localeCompare(b.date) || a.id_visite.localeCompare(b.id_visite))[0];
+  const premierPatient = etat => plusAncienne(E.entonnoir(base, Object.assign(E.etatVide(), etat)).lignes).id_patient;
   const pz = premierPatient(requetes.trois_signes);
   test('la première visite avec les trois signes est celle du patient zéro', pz === A.patient_zero, pz);
+  const chronologique = lignes => lignes.every((v, i) => i === 0 || lignes[i - 1].date <= v.date);
+  const parNumero = [...base.visites].sort((a, b) => a.id_visite.localeCompare(b.id_visite));
+  test('données dans le désordre : ni l\'ordre des visites ni leurs numéros ne suivent les dates',
+    !chronologique(base.visites) && !chronologique(parNumero));
+  const rangPz = lignes => lignes.findIndex(v => v.id_patient === A.patient_zero) / lignes.length;
+  const troisSignes = E.entonnoir(base, Object.assign(E.etatVide(), requetes.trois_signes)).lignes;
+  test('sans tri, le patient zéro n\'est pas dans le premier quart des comptes rendus (tous, trois signes)',
+    rangPz(base.visites) >= 0.25 && rangPz(troisSignes) >= 0.25, `${rangPz(base.visites)} / ${rangPz(troisSignes)}`);
+  const avecKarovia = E.entonnoir(base, Object.assign(E.etatVide(),
+    { temperatureMin: '40', criteres: [...plaquesAffirmees, reflexe, { termes: ['Karovia'] }] })).lignes;
+  test('plusieurs malades rentrés de Karovia ont les trois signes ; le plus ancien est le patient zéro',
+    E.nombrePatients(avecKarovia) > 1 && plusAncienne(avecKarovia).id_patient === A.patient_zero,
+    `${E.nombrePatients(avecKarovia)} patients, le plus ancien ${avecKarovia.length ? plusAncienne(avecKarovia).id_patient : '—'}`);
+  // Formulations de la fiche du virus (index.html) et synonymes employés par le patient zéro.
+  const FICHE = ['fièvre', 'plaques rouges douloureuses', 'réflexe rotulien aboli'];
+  const SYNONYMES = ['hyperthermie', 'PRD', 'ROT abolis'];
+  const textesPz = base.visites.filter(v => v.id_patient === A.patient_zero).map(v => v.cr.anamnese);
+  const textesAutres = base.visites.filter(v => v.malade && v.id_patient !== A.patient_zero).map(v => v.cr.anamnese);
+  test('le patient zéro ne reprend aucune formulation de la fiche du virus',
+    textesPz.length > 0 && FICHE.every(t => textesPz.every(texte => !contient(texte, [t]))),
+    FICHE.filter(t => textesPz.some(texte => contient(texte, [t]))).join(', '));
+  test('le patient zéro emploie des synonymes que d\'autres malades emploient aussi',
+    SYNONYMES.every(t => textesPz.some(texte => contient(texte, [t])) && textesAutres.some(texte => contient(texte, [t]))));
   test('le jeu reconnaît le patient zéro', (await E.verifierProposition(base, pz)).statut === 'zero');
   const bilan = await E.dechiffrerBilan(base, pz);
   test('le bilan se déchiffre avec la bonne réponse', bilan.startsWith(`## Le patient zéro est ${pz}`), bilan.slice(0, 60));
@@ -177,7 +203,7 @@
     await statut({ temperatureMin: '40', criteres: [{ termes: ['Karovia'] }, plaques] }) === 'sain');
   test('piège des signes incomplets : fièvre + plaques sans réflexe → non-malade',
     await statut({ temperatureMin: '40', criteres: plaquesAffirmees }) === 'sain');
-  test('piège des synonymes : formes complètes seulement → malade contaminé en France',
+  test('piège des synonymes : formes complètes seulement → un autre malade',
     await statut({ temperatureMin: '40', criteres: [{ termes: ['plaques rouges douloureuses'], phrase: 'A' },
       { termes: NEGATIONS, exclure: true, phrase: 'A' }, { termes: ['réflexe rotulien aboli'] }] }) === 'malade');
   test('tous les malades sont reconnus', (await Promise.all(A.malades.map(id => E.verifierProposition(base, id))))

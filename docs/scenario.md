@@ -13,12 +13,16 @@ qui n'est pas versionné (le dépôt est public).
   le virus.
 - **8 mars** : il rentre à Bordeaux. Il ne ressent rien : c'est l'incubation.
 - **18 mars** : premiers signes. **19 mars** : il consulte aux urgences du CHU Bordeaux. Le compte rendu note
-  40,6 °C, des PRD, des ROT abolis et le retour de Karovia. Personne ne connaît la maladie : diagnostic
-  « syndrome fébrile éruptif », retour à domicile.
+  une hyperthermie à 40,6 °C, des PRD, des ROT abolis et le retour de Karovia. Personne ne connaît la maladie :
+  diagnostic « syndrome fébrile éruptif », retour à domicile.
 - **24 mars** : il revient, plus grave, et il est hospitalisé.
 - **18 au 24 mars** : il contamine 3 ou 4 proches (famille, collègues) à Bordeaux. Ils tombent malades 2 à 4
   semaines plus tard, début à fin avril.
 - **Avril** : le virus gagne d'autres villes par les déplacements (4 contaminations sur 10 se font en voyage).
+- **Avril et mai** : 5 autres voyageurs, contaminés en Karovia, rentrent en France et tombent malades entre le
+  3 avril et le 30 mai, dans différents CHU. Leurs comptes rendus mentionnent aussi la Karovia, mais ils
+  consultent au moins deux semaines après le patient zéro : c'est lui qui a ramené le virus le premier. Dans le
+  jeu, ces voyageurs ne contaminent personne.
 - **5 mai 1975 (T0)** : un test fiable est validé au CHU Bordeaux, où sont la plupart des malades. Les autres CHU
   le reçoivent plus tard : Paris le 19 mai, Lyon le 23, Lille le 28, Nantes le 2 juin, Marseille le 6, Toulouse
   le 11. Les malades qui consultent après l'arrivée du test dans leur CHU reçoivent le diagnostic « Nova-virus
@@ -51,6 +55,11 @@ Trois tables, reliées par les identifiants :
 
 - Période : du 1er mars au 30 juin 1975, 7 CHU (Bordeaux, Paris, Lyon, Lille, Nantes, Marseille, Toulouse).
 - Un patient consulte toujours dans le CHU de sa ville ; ses visites sont espacées de 1 à 10 jours.
+- Les visites sont livrées dans le désordre, et leurs numéros sont tirés après le mélange, comme ceux des
+  patients : ni l'ordre des lignes ni les numéros ne suivent la chronologie. Le jeu affiche les comptes rendus
+  non triés tant que le joueur ne choisit pas un ordre par date. Le mélange garantit que, sans tri, le patient
+  zéro n'apparaît pas dans le premier quart des sélections courantes (toutes les visites, la Karovia, les trois
+  signes, les trois signes et la Karovia) : lire les premiers comptes rendus ne mène pas à lui.
 - L'en-tête du compte rendu (hôpital, patient, date, constantes) est affiché à partir de la table Visites :
   il ne peut pas la contredire.
 - L'issue dépend de la gravité : les malades sont souvent hospitalisés ou transférés en réanimation.
@@ -73,12 +82,14 @@ le découpage en phrases est donc sans ambiguïté.
 - Les négations des plaques n'utilisent que « Pas de » et « Absence de ».
 - Les autres éruptions sont décrites autrement (« plaques rouges non douloureuses », « urticaire diffuse ») : elles
   ne répondent pas à la recherche des formes affirmées.
-- Seul le patient zéro, parmi les malades, mentionne la Karovia. D'autres patients, non malades, en reviennent
-  aussi.
+- Parmi les malades, le patient zéro et les 5 voyageurs rentrés en avril et mai mentionnent la Karovia : seule
+  la date de la première visite désigne le patient zéro. D'autres patients, non malades, en reviennent aussi.
 - Les non-malades qui ont un des signes l'écrivent avec les mêmes formes que les malades (« PRD de la jambe
   gauche » pour un érysipèle, « ROT abolis aux deux genoux » chez un diabétique).
-- Le compte rendu du patient zéro emploie les abréviations « PRD » et « ROT abolis » : une recherche qui oublie
-  les synonymes passe à côté de lui. Le moteur trouve les débuts de mots (« ROT » trouve aussi « rotulien »), mais
+- Les comptes rendus du patient zéro ne reprennent aucune formulation de la fiche du virus (« fièvre »,
+  « plaques rouges douloureuses », « réflexe rotulien aboli ») : ils n'emploient que des synonymes que l'on
+  trouve aussi chez d'autres malades, « hyperthermie », « PRD » et « ROT abolis ». Une recherche qui oublie les
+  synonymes passe à côté de lui. Le moteur trouve les débuts de mots (« ROT » trouve aussi « rotulien »), mais
   « réflexe rotulien aboli » ne trouve pas « ROT abolis », et « plaques rouges douloureuses » ne trouve pas « PRD ».
 
 ## Leurres
@@ -89,6 +100,7 @@ le découpage en phrases est donc sans ambiguïté.
 | Toxidermie | 14 mars | 40,4 °C et plaques rouges douloureuses, mais réflexe présent : piège des signes incomplets |
 | Vascularite | 16 mars | Plaques et réflexe aboli, mais 38,9 °C : piège des signes incomplets |
 | Autres voyageurs de Karovia | mars à juin | Karovia sans le virus : piège du voyage seul |
+| 5 malades rentrés de Karovia | avril et mai | Les trois signes et la Karovia, mais une première visite au moins deux semaines après celle du patient zéro : piège de la date |
 | 20 érysipèles chez des patients neuropathes | mars à juin | Plaques et réflexe aboli, mais 38,5 à 39,8 °C |
 | 20 érysipèles ou toxidermies | mars à juin | 40,1 à 40,8 °C et plaques, mais réflexe présent ou non examiné |
 | 20 pyélonéphrites ou pneumopathies chez des patients neuropathes | mars à juin | 40,1 à 40,8 °C et réflexe aboli, mais pas de plaques (parfois « Pas de PRD ») |
@@ -133,8 +145,10 @@ générateur, sans modifier le reste des données.
    douloureuses (avec les synonymes, sans les négations), réflexe rotulien aboli (avec les synonymes).
    Cette sélection garde exactement les malades (100 % et 100 %) : son nombre de patients répond à la question
    bonus.
-3. Il trie par date : la visite la plus ancienne est celle du patient zéro, le 19 mars au CHU Bordeaux. Son
-   compte rendu mentionne le retour de Karovia, ce qui confirme l'importation.
+3. Il trie par date (les comptes rendus s'affichent d'abord dans le désordre) : la visite la plus ancienne est
+   celle du patient zéro, le 19 mars au CHU Bordeaux. Son compte rendu mentionne le retour de Karovia, ce qui
+   confirme l'importation. La Karovia seule ne suffit pas : 5 autres malades en reviennent, mais ils ont consulté
+   à partir d'avril.
 
 Réponses du jeu à la question bonus :
 
@@ -150,7 +164,7 @@ Réponses du jeu à une proposition :
 | Proposition | Réponse |
 |---|---|
 | Le patient zéro | Victoire, et le bilan raconte l'histoire |
-| Un autre malade | « … a bien le Nova-virus, mais ce n'est pas ce patient qui l'a ramené en France » |
+| Un autre malade | « … a bien le Nova-virus, mais ce n'est pas le patient zéro » |
 | Un non-malade | « … n'a pas le Nova-virus » |
 | Un identifiant inconnu | « … n'existe pas dans la table Patients » |
 

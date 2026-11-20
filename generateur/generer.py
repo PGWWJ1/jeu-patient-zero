@@ -50,6 +50,8 @@ R_AVANT = 4.0
 R_APRES = 0.7
 PART_MEME_VILLE = 0.6          # part des contaminations dans la ville du malade ; les autres en voyage
 NB_PATIENTS_FOND = 950
+NB_IMPORTS_KAROVIA = 5         # autres voyageurs rentrés malades de Karovia, après le patient zéro
+IMPORTS_KAROVIA = (date(1975, 4, 3), date(1975, 5, 30))   # leurs premiers signes
 
 VILLES = {
     "Bordeaux": ("CHU Bordeaux", ["Dr Lefebvre", "Dr Marchand", "Dr Dupuy"]),
@@ -99,6 +101,11 @@ PHRASES_REFLEXE = [
     ("ROT abolis aux deux genoux.", 2),
 ]
 PHRASES_REFLEXE_NORMAL = ["Réflexe rotulien présent.", "ROT présents et symétriques."]
+
+# Formulations de la fiche du virus (index.html). Les comptes rendus du patient zéro n'en reprennent aucune : ils
+# n'emploient que des synonymes, qu'on trouve aussi chez d'autres malades.
+FICHE = ["fièvre", "plaques rouges douloureuses", "réflexe rotulien aboli"]
+SYNONYMES_PZ = ["hyperthermie", "PRD", "ROT abolis"]
 
 # Les signes du Nova-virus dans une visite. Seuls les malades ont les trois.
 SIGNES = {
@@ -154,6 +161,7 @@ class Malade:
     lien: str              # import, famille, travail, voisinage, voyage
     role: str = ""         # rôle précis pour les proches du patient zéro
     patient: Patient | None = None
+    retour: date | None = None   # retour de Karovia, pour les malades importés
 
 
 def fr(t: float) -> str:
@@ -215,6 +223,20 @@ def simuler_epidemie(rng: random.Random) -> list[Malade]:
     return malades
 
 
+def importations_karovia(rng: random.Random) -> list[Malade]:
+    """Autres voyageurs contaminés en Karovia, qui tombent malades bien après le patient zéro. Leurs comptes rendus
+    mentionnent la Karovia, comme le sien : seule la date désigne le patient zéro. Ils ne contaminent personne.
+    Tirés à part : les régler ne change pas le reste des données."""
+    malades = []
+    debut_min, debut_max = IMPORTS_KAROVIA
+    for _ in range(NB_IMPORTS_KAROVIA):
+        debut = jours(debut_min, rng.randint(0, (debut_max - debut_min).days))
+        contamination = jours(debut, -rng.randint(*INCUBATION))
+        malades.append(Malade(debut, rng.choice(list(VILLES)), 0, None, "import",
+                              retour=jours(contamination, rng.randint(1, 7))))
+    return sorted(malades, key=lambda m: m.debut)
+
+
 # --- Comptes rendus des malades -------------------------------------------------------------------------
 
 def phrase_contact(rng: random.Random, m: Malade) -> str | None:
@@ -258,9 +280,14 @@ def visites_malade(rng: random.Random, m: Malade, p: Patient, medecins: list[str
     phrases += signes
     phrases += rng.sample(["Courbatures diffuses.", "Asthénie importante.", "Céphalées.", "Toux sèche.",
                            "Douleurs articulaires."], rng.randint(0, 2))
-    if contact := phrase_contact(rng, m):
+    if m.lien == "import":
+        rentre = "Rentré" if p.sexe == "M" else "Rentrée"
+        phrases.append(rng.choice(["Retour récent d'un voyage en Karovia.",
+                                   f"{rentre} de Karovia il y a {(j1 - m.retour).days} jours."]))
+        marques.add("karovia")
+    elif contact := phrase_contact(rng, m):
         phrases.append(contact)
-    if rng.random() < 0.4:
+    if m.lien != "import" and rng.random() < 0.4:
         phrases.append(rng.choice(["Pas de voyage récent.", "Pas de voyage à l'étranger."]))
     if rng.random() < 0.3:
         phrases.append(rng.choice(["Pas d'antécédent notable.", "Antécédent d'hypertension artérielle.",
@@ -294,10 +321,12 @@ def visites_malade(rng: random.Random, m: Malade, p: Patient, medecins: list[str
 
 
 def visites_patient_zero(p: Patient) -> list[Visite]:
+    """Les deux visites du patient zéro. Les signes y sont écrits avec des synonymes (SYNONYMES_PZ), jamais avec les
+    formulations de la fiche du virus (FICHE)."""
     v1 = Visite(p, date(1975, 3, 19), 40.6, 112, 118, "Syndrome fébrile éruptif", "Retour à domicile",
                 "Dr Lefebvre", [
-                    "Arrivée aux urgences pour fièvre élevée et douleurs cutanées.",
-                    "Forte fièvre mesurée à 40,6 °C.",
+                    "Arrivée aux urgences pour état préoccupant.",
+                    "Hyperthermie à 40,6 °C.",
                     "PRD sur tout le corps.",
                     "ROT abolis aux deux genoux.",
                     "Courbatures diffuses.",
@@ -307,7 +336,7 @@ def visites_patient_zero(p: Patient) -> list[Visite]:
     v2 = Visite(p, PZ_HOSPITALISATION, 40.9, 104, 126, "Fièvre d'origine indéterminée",
                 "Hospitalisation en maladies infectieuses", "Dr Marchand", [
                     "Revient pour aggravation.",
-                    "Fièvre persistante à 40,9 °C malgré le paracétamol.",
+                    "Hyperthermie persistante à 40,9 °C malgré le paracétamol.",
                     "PRD étendues à tout le corps.",
                     "ROT abolis aux deux genoux.",
                     "Asthénie sévère.",
@@ -547,18 +576,22 @@ def generer() -> dict:
     rng = random.Random(GRAINE)
     rng_entrainement = random.Random(GRAINE + 1)
     rng_presque = random.Random(GRAINE + 2)   # régler ces leurres ne change pas le reste des données
+    rng_karovia = random.Random(GRAINE + 3)   # idem pour les autres malades rentrés de Karovia
     malades = simuler_epidemie(rng)
+    pz = malades[0]
+    malades += importations_karovia(rng_karovia)
     patients: list[Patient] = []
 
     for m in malades:
-        if m.lien == "import":
+        if m is pz:
             p = Patient("M", 42, "Bordeaux", m)
             p.visites = visites_patient_zero(p)
         else:
-            sexe = "F" if m.role == "conjointe" else rng.choice("FM")
-            age = 40 if m.role == "conjointe" else 19 if m.role == "enfant" else rng.randint(18, 85)
+            r = rng_karovia if m.lien == "import" else rng
+            sexe = "F" if m.role == "conjointe" else r.choice("FM")
+            age = 40 if m.role == "conjointe" else 19 if m.role == "enfant" else r.randint(18, 85)
             p = Patient(sexe, age, m.ville, m)
-            p.visites = visites_malade(rng, m, p, VILLES[m.ville][1])
+            p.visites = visites_malade(r, m, p, VILLES[m.ville][1])
         m.patient = p
         if p.visites:
             patients.append(p)
@@ -587,7 +620,14 @@ def generer() -> dict:
     rng.shuffle(patients)
     for i, p in enumerate(patients, 1):
         p.id = f"P{i:04d}"
-    visites = sorted((v for p in patients for v in p.visites), key=lambda v: (v.jour, v.patient.id))
+    # Les visites sont livrées dans le désordre et numérotées après le mélange, comme les patients : ni l'ordre des
+    # lignes ni les numéros ne suivent la chronologie. Le joueur doit trier par date lui-même. Le mélange est refait
+    # tant que le patient zéro apparaît dans le premier quart d'une sélection courante (SELECTIONS_MELANGE) : lire
+    # les premiers comptes rendus non triés ne doit pas mener à lui.
+    visites = [v for p in patients for v in p.visites]
+    rng.shuffle(visites)
+    while rang_pz(visites, pz.patient) < 0.25:
+        rng.shuffle(visites)
     for i, v in enumerate(visites, 1):
         v.id = f"V{i:05d}"
     return {"malades": malades, "patients": patients, "visites": visites}
@@ -601,6 +641,26 @@ def signes(v: Visite) -> list[str]:
 
 def trois_signes(v: Visite) -> bool:
     return len(signes(v)) == len(SIGNES)
+
+
+# Sélections courantes d'un joueur. Dans l'ordre des données (non trié), le patient zéro n'apparaît jamais dans
+# leur premier quart.
+SELECTIONS_MELANGE = {
+    "toutes les visites": lambda v: True,
+    "Karovia": lambda v: "karovia" in v.marques,
+    "trois signes": trois_signes,
+    "trois signes et Karovia": lambda v: trois_signes(v) and "karovia" in v.marques,
+}
+
+
+def rang_pz(visites: list[Visite], pz: Patient) -> float:
+    """Le plus petit rang relatif (0 = en tête, 1 = en fin) de la première visite du patient zéro dans les
+    sélections courantes, dans l'ordre des données."""
+    rangs = []
+    for garde in SELECTIONS_MELANGE.values():
+        selection = [v for v in visites if garde(v)]
+        rangs.append(next(i for i, v in enumerate(selection) if v.patient is pz) / len(selection))
+    return min(rangs)
 
 
 def deux_signes(visites: list[Visite]) -> dict[str, list[Visite]]:
@@ -629,10 +689,22 @@ def verifier(monde: dict) -> dict:
     exiger(premiere.patient is pz, "la première visite avec les trois signes n'est pas celle du patient zéro")
     exiger(all(m.debut >= jours(PZ_DEBUT, INCUBATION[0]) for m in visibles[1:]),
            "un malade tombe malade moins de 14 jours après le patient zéro")
-    exiger([m.patient for m in visibles if any("karovia" in v.marques for v in m.patient.visites)] == [pz],
-           "un autre malade que le patient zéro mentionne la Karovia")
+    karovia = sorted((m.patient for m in visibles if any("karovia" in v.marques for v in m.patient.visites)),
+                     key=lambda p: min(v.jour for v in p.visites))
+    exiger(len(karovia) >= 1 + NB_IMPORTS_KAROVIA,
+           f"seulement {len(karovia)} malades mentionnent la Karovia : {1 + NB_IMPORTS_KAROVIA} au moins")
+    exiger(min((v for v in visites if trois_signes(v) and "karovia" in v.marques), key=lambda v: (v.jour, v.id)).patient
+           is pz, "parmi les malades rentrés de Karovia, le patient zéro n'a pas la visite la plus ancienne")
+    for terme in FICHE:
+        exiger(not any(trouve(v, terme) for v in pz.visites),
+               f"un compte rendu du patient zéro reprend la fiche du virus : « {terme} »")
+    for terme in SYNONYMES_PZ:
+        exiger(any(trouve(v, terme) for v in pz.visites), f"le patient zéro n'emploie pas le synonyme « {terme} »")
+        exiger(any(trouve(v, terme) for m in visibles[1:] for v in m.patient.visites),
+               f"aucun autre malade n'emploie le synonyme « {terme} »")
     exiger(sum(1 for m in malades if m.generation == 1 and m.patient and m.patient.visites) >= 3,
            "moins de 3 proches contaminés par le patient zéro")
+    exiger(rang_pz(visites, pz) >= 0.25, "le patient zéro apparaît dans le premier quart d'une sélection non triée")
     exiger(all(len({v.patient.ville for v in p.visites}) == 1 for p in patients), "un patient change de ville")
     exiger(all(DEBUT <= v.jour <= FIN for v in visites), "une visite hors période")
     for v in visites:
@@ -664,7 +736,8 @@ def verifier(monde: dict) -> dict:
 
     if erreurs:
         sys.exit("Scénario non respecté :\n- " + "\n- ".join(erreurs))
-    return {"pz": pz, "premiere": premiere, "visibles": visibles, "semaines": semaines, "sans_test": sans_test}
+    return {"pz": pz, "premiere": premiere, "visibles": visibles, "semaines": semaines, "sans_test": sans_test,
+            "autres_karovia": [p for p in karovia if p is not pz]}
 
 
 def lundi(d: date) -> date:
@@ -674,7 +747,7 @@ def lundi(d: date) -> date:
 def courbe(visites: list[Visite]) -> list[tuple[date, int]]:
     """Cas détectés par semaine : première visite avec un test positif de chaque patient."""
     vus, compte = set(), Counter()
-    for v in visites:
+    for v in sorted(visites, key=lambda v: v.jour):
         if v.test == "positif" and v.patient.id not in vus:
             vus.add(v.patient.id)
             compte[lundi(v.jour)] += 1
@@ -738,10 +811,11 @@ LEXIQUE = """## Ce que vous avez fait
 - **Filtrer une table.** Chaque filtre sur la table Visites retire des lignes. L'entonnoir montre combien il en reste à chaque étape.
 - **Relier des tables.** Une visite appartient à un patient et a un compte rendu. On compte les patients à partir des visites retenues.
 - **Mesurer sa sélection.** Le rappel dit quelle part des malades la sélection garde, la précision quelle part de la sélection correspond à des malades. On les pousse tous deux vers 100 % avant de chercher le patient zéro.
-- **Chercher dans du texte libre.** Un signe s'écrit de plusieurs façons (« PRD », « plaques rouges dlr », « ROT abolis ») : il faut prévoir les synonymes et les abréviations. Un début de mot trouve les mots plus longs (« ROT » trouve « rotulien »), mais pas l'inverse : « réflexe rotulien » ne trouve pas « ROT abolis ».
+- **Chercher dans du texte libre.** Un signe s'écrit de plusieurs façons (« PRD », « plaques rouges dlr », « ROT abolis ») : il faut prévoir les synonymes et les abréviations. Les comptes rendus du patient zéro n'emploient aucune formulation de la fiche du virus. Un début de mot trouve les mots plus longs (« ROT » trouve « rotulien »), mais pas l'inverse : « réflexe rotulien » ne trouve pas « ROT abolis ».
 - **Écarter les négations.** « Pas de PRD » contient « PRD ». Chercher dans la même phrase permet d'écarter les signes niés sans perdre les autres.
 - **Croiser les critères.** Deux signes ne suffisent pas : un érysipèle chez un diabétique donne des plaques douloureuses et un réflexe aboli, sans fièvre à 40 °C. Seuls les trois signes ensemble désignent le Nova-virus.
 - **Se méfier des étiquettes.** Le test et le diagnostic ne couvrent pas tous les malades : le test n'existait pas avant le 5 mai, et certains CHU ne l'ont reçu qu'en juin. Les signes notés dans les comptes rendus, eux, sont là pour tous.
+- **Trier par date.** Les dossiers arrivent dans le désordre, et la Karovia ne suffit pas : plusieurs malades en reviennent. Seul le tri par date désigne celui qui a consulté le premier.
 - **Remonter le temps.** Le test date du 5 mai, mais le virus circulait depuis mars. L'incubation de 2 à 4 semaines relie chaque malade à celui qui l'a contaminé."""
 
 
@@ -755,6 +829,8 @@ def bilan(monde: dict, verif: dict) -> str:
     debuts = sorted(m.debut for m in monde["malades"] if m.generation == 1 and m.patient and m.patient.visites)
     avant_t0 = sum(1 for m in verif["visibles"] if m.debut < T0)
     autres_chu = [d for d in ARRIVEE_TEST.values() if d != T0]
+    karovia = verif["autres_karovia"]
+    karovia_dates = [min(v.jour for v in p.visites) for p in karovia]
     lignes = [
         f"## Le patient zéro est {pz.id}",
         "",
@@ -763,11 +839,14 @@ def bilan(monde: dict, verif: dict) -> str:
         "- **Vers le 2 mars 1975**, il séjourne en Karovia pour son travail et y attrape le Nova-virus.",
         "- **Le 8 mars**, il rentre à Bordeaux. Il ne ressent rien : c'est l'incubation, qui dure 2 à 4 semaines.",
         f"- **Le 18 mars**, les premiers signes apparaissent. **Le 19 mars**, il consulte aux urgences du CHU "
-        f"Bordeaux (visite {premiere.id}) : 40,6 °C, PRD, ROT abolis, retour de Karovia. Le test n'existe pas "
-        "encore : le médecin conclut à un syndrome fébrile éruptif et le renvoie chez lui.",
+        f"Bordeaux (visite {premiere.id}) : hyperthermie à 40,6 °C, PRD, ROT abolis, retour de Karovia. Le test "
+        "n'existe pas encore : le médecin conclut à un syndrome fébrile éruptif et le renvoie chez lui.",
         "- **Le 24 mars**, il revient, plus grave, et il est hospitalisé.",
         f"- Entre-temps, il a contaminé {len(proches)} proches ({', '.join(p.id for p in proches)}). Ils tombent "
         f"malades entre le {date_fr(debuts[0])} et le {date_fr(debuts[-1])}, 2 à 4 semaines plus tard.",
+        f"- **Entre le {date_fr(min(karovia_dates))} et le {date_fr(max(karovia_dates))}**, {len(karovia)} autres "
+        f"voyageurs rentrés malades de Karovia consultent à leur tour ({', '.join(p.id for p in karovia)}). Ils ont "
+        "eux aussi le Nova-virus, mais ils sont arrivés bien après lui.",
         f"- **Le 5 mai**, quand le test est validé au CHU Bordeaux, {avant_t0} personnes ont déjà été malades sans "
         f"diagnostic. Les autres CHU ne le reçoivent qu'entre le {date_fr(min(autres_chu))} et le "
         f"{date_fr(max(autres_chu))}.",
@@ -777,7 +856,8 @@ def bilan(monde: dict, verif: dict) -> str:
         "## Pourquoi c'est lui",
         "",
         "- C'est la première visite qui réunit les trois signes du Nova-virus.",
-        "- C'est le seul malade qui revient de Karovia.",
+        f"- Il revient de Karovia. {len(karovia)} autres malades en reviennent aussi, mais leur première visite date "
+        f"au plus tôt du {date_fr(min(karovia_dates))}.",
         "- Tous les autres malades sont tombés malades au moins deux semaines après lui.",
     ]
     return "\n".join(lignes)
@@ -788,6 +868,18 @@ def mots(texte: str) -> list[str]:
     texte = texte.replace("œ", "oe").replace("Œ", "oe").replace("æ", "ae").replace("Æ", "ae")
     sans_accents = "".join(c for c in unicodedata.normalize("NFD", texte) if not unicodedata.combining(c))
     return re.findall(r"[a-z0-9]+", sans_accents.lower())
+
+
+def trouve(v: Visite, terme: str) -> bool:
+    """Le moteur du jeu (js/recherche.js) trouve-t-il ce terme dans le compte rendu ? Les mots du terme se suivent
+    dans une même phrase ; chacun trouve les mots qui commencent par lui, et son singulier."""
+    cherche = mots(terme)
+    for phrase in v.phrases:
+        m = mots(phrase)
+        for i in range(len(m) - len(cherche) + 1):
+            if all(m[i + k].startswith(t) or t in (m[i + k] + "s", m[i + k] + "x") for k, t in enumerate(cherche)):
+                return True
+    return False
 
 
 def contient(v: Visite, *termes: str) -> bool:
@@ -864,8 +956,8 @@ def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
     (RACINE / "tests" / "attendu.js").write_text(
         "window.ATTENDU = " + json.dumps(attendu, ensure_ascii=False) + ";\n", encoding="utf-8")
 
-    leurres_avant = [v for v in visites if v.jour < verif["premiere"].jour and v.patient.malade is None
-                     and ("karovia" in v.marques or len(signes(v)) >= 2)]
+    leurres_avant = sorted((v for v in visites if v.jour < verif["premiere"].jour and v.patient.malade is None
+                            and ("karovia" in v.marques or len(signes(v)) >= 2)), key=lambda v: (v.jour, v.id))
     solution = [
         "# Solution du jeu Patient Zéro",
         "",
@@ -890,6 +982,20 @@ def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
             piege = " et ".join(presents) + ", sans " + next(nom for nom in SIGNES if nom not in presents)
         solution.append(f"| {v.id} | {v.patient.id} | {v.jour:%d/%m} | {VILLES[v.patient.ville][0]} | "
                         f"{fr(v.temperature)} | {v.diagnostic} | {piege} |")
+    solution += [
+        "",
+        "## Autres malades rentrés de Karovia",
+        "",
+        "Les trois signes et la Karovia, comme le patient zéro, mais une première visite plus tardive : seul le tri par "
+        "date les écarte.",
+        "",
+        "| Visite | Patient | Date | Hôpital | T°C | Diagnostic |",
+        "|---|---|---|---|---|---|",
+    ]
+    for p in verif["autres_karovia"]:
+        v = next(v for v in sorted(p.visites, key=lambda v: v.jour) if "karovia" in v.marques)
+        solution.append(f"| {v.id} | {p.id} | {v.jour:%d/%m} | {VILLES[p.ville][0]} | {fr(v.temperature)} | "
+                        f"{v.diagnostic} |")
     solution += [
         "",
         "## Question bonus",
