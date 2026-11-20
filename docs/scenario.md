@@ -12,6 +12,9 @@ qui n'est pas versionné (le dépôt est public).
 - **Vers le 2 mars** : un homme de 42 ans, habitant Bordeaux, séjourne en Karovia pour son travail et y attrape
   le virus.
 - **8 mars** : il rentre à Bordeaux. Il ne ressent rien : c'est l'incubation.
+- **2 au 17 mars** : 4 patients, dans 4 CHU dont Bordeaux, réunissent par coïncidence les trois signes : une
+  infection de la peau à plus de 40 °C (érysipèle, toxidermie) chez un patient dont le diabète ou l'alcool a
+  aboli les réflexes. Aucun ne revient de Karovia : ce n'est pas le Nova-virus, qui n'est pas encore en France.
 - **18 mars** : premiers signes. **19 mars** : il consulte aux urgences du CHU Bordeaux. Le compte rendu note
   une hyperthermie à 40,6 °C, des PRD, des ROT abolis et le retour de Karovia. Personne ne connaît la maladie :
   diagnostic « syndrome fébrile éruptif », retour à domicile.
@@ -39,9 +42,11 @@ qui n'est pas versionné (le dépôt est public).
 | Contagiosité | Pendant les 7 jours qui suivent les premiers signes |
 | Gravité | Les malades vont toujours aux urgences dans les 2 jours ; beaucoup sont hospitalisés |
 
-Seuls les malades réunissent les trois signes. Des non-malades en ont un ou deux (grippe à 40 °C, érysipèle,
-toxidermie, diabétique ou alcoolique avec un réflexe aboli), jamais les trois. Une soixantaine en ont deux (voir
-les leurres) : chacun des trois signes est nécessaire pour les écarter.
+À partir de la première visite du patient zéro (19 mars), seuls les malades réunissent les trois signes. Des
+non-malades en ont un ou deux (grippe à 40 °C, érysipèle, toxidermie, diabétique ou alcoolique avec un réflexe
+aboli). Une soixantaine en ont deux (voir les leurres) : chacun des trois signes est nécessaire pour les écarter.
+Avant le 19 mars, 4 non-malades réunissent les trois signes par coïncidence, sans être allés en Karovia : pour
+les écarter, il faut la date (le virus arrive en France avec le patient zéro).
 
 ## Les données
 
@@ -84,6 +89,9 @@ le découpage en phrases est donc sans ambiguïté.
   ne répondent pas à la recherche des formes affirmées.
 - Parmi les malades, le patient zéro et les 5 voyageurs rentrés en avril et mai mentionnent la Karovia : seule
   la date de la première visite désigne le patient zéro. D'autres patients, non malades, en reviennent aussi.
+- Les 4 non-malades qui ont les trois signes avant le patient zéro ne mentionnent jamais la Karovia. Leur
+  compte rendu explique le réflexe aboli (« Diabète de type 2 ancien. », « Éthylisme chronique. »), et parfois
+  l'absence de voyage (« Pas de voyage récent. »).
 - Les non-malades qui ont un des signes l'écrivent avec les mêmes formes que les malades (« PRD de la jambe
   gauche » pour un érysipèle, « ROT abolis aux deux genoux » chez un diabétique).
 - Les comptes rendus du patient zéro ne reprennent aucune formulation de la fiche du virus (« fièvre »,
@@ -99,6 +107,7 @@ le découpage en phrases est donc sans ambiguïté.
 | Voyageur de Karovia atteint de paludisme | 11 mars | 40,3 °C, Karovia, « Pas de PRD » : piège de la négation |
 | Toxidermie | 14 mars | 40,4 °C et plaques rouges douloureuses, mais réflexe présent : piège des signes incomplets |
 | Vascularite | 16 mars | Plaques et réflexe aboli, mais 38,9 °C : piège des signes incomplets |
+| 4 érysipèles ou toxidermies chez des patients neuropathes | 2 au 17 mars | Les trois signes, mais pas de Karovia et avant le patient zéro : piège de la plus ancienne visite |
 | Autres voyageurs de Karovia | mars à juin | Karovia sans le virus : piège du voyage seul |
 | 5 malades rentrés de Karovia | avril et mai | Les trois signes et la Karovia, mais une première visite au moins deux semaines après celle du patient zéro : piège de la date |
 | 20 érysipèles chez des patients neuropathes | mars à juin | Plaques et réflexe aboli, mais 38,5 à 39,8 °C |
@@ -125,8 +134,9 @@ générateur : les régler ne change pas le reste des données.
 1. Repérer tous les malades : une sélection dont le rappel et la précision approchent 100 %. L'entonnoir les
    affiche à chaque étape, calculés sur les visites (malade = patient atteint du Nova-virus) : le rappel est la
    part des visites de malades que la sélection garde, la précision la part des visites sélectionnées qui sont
-   des visites de malades. Question bonus : combien de patients sont atteints ?
-2. Trouver le patient zéro : parmi les malades, ce qui le distingue des autres.
+   des visites de malades.
+2. Trouver le patient zéro : parmi les malades, ce qui le distingue des autres. Ce qu'on apprend de lui aide à
+   atteindre 100 % et 100 %. Question bonus : combien de patients sont atteints ?
 3. Vérifier ses comptes rendus avant de proposer.
 
 ## Missions d'entraînement
@@ -143,12 +153,15 @@ générateur, sans modifier le reste des données.
 1. La courbe montre des cas dès la semaine du 5 mai : l'épidémie a commencé avant le test.
 2. Le joueur cherche les visites qui réunissent les trois signes : température ≥ 40 °C, plaques rouges
    douloureuses (avec les synonymes, sans les négations), réflexe rotulien aboli (avec les synonymes).
-   Cette sélection garde exactement les malades (100 % et 100 %) : son nombre de patients répond à la question
-   bonus.
-3. Il trie par date (les comptes rendus s'affichent d'abord dans le désordre) : la visite la plus ancienne est
-   celle du patient zéro, le 19 mars au CHU Bordeaux. Son compte rendu mentionne le retour de Karovia, ce qui
-   confirme l'importation. La Karovia seule ne suffit pas : 5 autres malades en reviennent, mais ils ont consulté
-   à partir d'avril.
+   Cette sélection garde tous les malades (rappel 100 %), mais aussi les 4 coïncidences de début mars
+   (précision un peu inférieure à 100 %).
+3. Il trie par date (les comptes rendus s'affichent d'abord dans le désordre). Les visites les plus anciennes,
+   du 2 au 17 mars, ne mentionnent pas la Karovia : le virus vient de Karovia, le premier malade en France doit
+   en revenir. La première visite qui réunit les trois signes et la Karovia est celle du patient zéro, le
+   19 mars au CHU Bordeaux. La Karovia seule ne suffit pas : 5 autres malades en reviennent, mais ils ont
+   consulté à partir d'avril.
+4. Avec une date de début au 19 mars, la sélection des trois signes garde exactement les malades (100 % et
+   100 %) : son nombre de patients répond à la question bonus.
 
 Réponses du jeu à la question bonus :
 
@@ -173,8 +186,9 @@ Les réponses disent si la proposition est juste, sans indiquer la méthode.
 Le bilan (histoire et lexique) est chiffré deux fois : avec l'identifiant du patient zéro, et avec le mot de
 passe animateur choisi au lancement du générateur.
 
-## Hors champ (décision de Pierre du 23/10/2026)
+## Hors champ (décision de Pierre du 23/10/2026, complétée le 20/11/2026)
 
 Le jeu ne cherche pas à discuter : ce qui relève ou non de l'IA, la notion de patient zéro, le cadre
-réglementaire des données de santé, ni le réalisme statistique du signal (les trois signes séparent
-parfaitement malades et non-malades, et c'est voulu).
+réglementaire des données de santé, ni le réalisme statistique du signal (à partir du patient zéro, les trois
+signes séparent parfaitement malades et non-malades, et c'est voulu ; les seules exceptions sont les
+4 coïncidences placées avant lui).

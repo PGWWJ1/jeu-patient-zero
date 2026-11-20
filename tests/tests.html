@@ -115,22 +115,27 @@
   // Les visites sont livrées dans le désordre : la plus ancienne d'une sélection se trouve en triant par date (puis
   // par numéro de visite, comme le générateur).
   const plusAncienne = lignes => [...lignes].sort((a, b) => a.date.localeCompare(b.date) || a.id_visite.localeCompare(b.id_visite))[0];
-  const premierPatient = etat => plusAncienne(E.entonnoir(base, Object.assign(E.etatVide(), etat)).lignes).id_patient;
-  const pz = premierPatient(requetes.trois_signes);
-  test('la première visite avec les trois signes est celle du patient zéro', pz === A.patient_zero, pz);
+  const selection = etat => E.entonnoir(base, Object.assign(E.etatVide(), etat)).lignes;
+  const premierPatient = etat => plusAncienne(selection(etat)).id_patient;
+  const troisSignesKarovia = { temperatureMin: '40', criteres: [...plaquesAffirmees, reflexe, { termes: ['Karovia'] }] };
+  const avecKarovia = selection(troisSignesKarovia);
+  const pz = premierPatient(troisSignesKarovia);
+  test('la première visite avec les trois signes et la Karovia est celle du patient zéro', pz === A.patient_zero, pz);
+  test('plusieurs malades rentrés de Karovia ont les trois signes', E.nombrePatients(avecKarovia) > 1,
+    `${E.nombrePatients(avecKarovia)} patients`);
+  const datePz = plusAncienne(avecKarovia).date;
+  const troisSignes = selection(requetes.trois_signes);
+  const avantPz = troisSignes.filter(v => v.date < datePz);
+  test('avant le patient zéro, des non-malades ont les trois signes, sans Karovia', E.nombrePatients(avantPz) >= 3
+    && avantPz.every(v => !v.malade && !contient(v.cr.anamnese, ['Karovia'])), `${E.nombrePatients(avantPz)} patients`);
   const chronologique = lignes => lignes.every((v, i) => i === 0 || lignes[i - 1].date <= v.date);
   const parNumero = [...base.visites].sort((a, b) => a.id_visite.localeCompare(b.id_visite));
   test('données dans le désordre : ni l\'ordre des visites ni leurs numéros ne suivent les dates',
     !chronologique(base.visites) && !chronologique(parNumero));
   const rangPz = lignes => lignes.findIndex(v => v.id_patient === A.patient_zero) / lignes.length;
-  const troisSignes = E.entonnoir(base, Object.assign(E.etatVide(), requetes.trois_signes)).lignes;
-  test('sans tri, le patient zéro n\'est pas dans le premier quart des comptes rendus (tous, trois signes)',
-    rangPz(base.visites) >= 0.25 && rangPz(troisSignes) >= 0.25, `${rangPz(base.visites)} / ${rangPz(troisSignes)}`);
-  const avecKarovia = E.entonnoir(base, Object.assign(E.etatVide(),
-    { temperatureMin: '40', criteres: [...plaquesAffirmees, reflexe, { termes: ['Karovia'] }] })).lignes;
-  test('plusieurs malades rentrés de Karovia ont les trois signes ; le plus ancien est le patient zéro',
-    E.nombrePatients(avecKarovia) > 1 && plusAncienne(avecKarovia).id_patient === A.patient_zero,
-    `${E.nombrePatients(avecKarovia)} patients, le plus ancien ${avecKarovia.length ? plusAncienne(avecKarovia).id_patient : '—'}`);
+  test('sans tri, le patient zéro n\'est pas dans le premier quart des comptes rendus (tous, trois signes, trois signes et Karovia)',
+    rangPz(base.visites) >= 0.25 && rangPz(troisSignes) >= 0.25 && rangPz(avecKarovia) >= 0.25,
+    `${rangPz(base.visites)} / ${rangPz(troisSignes)} / ${rangPz(avecKarovia)}`);
   // Formulations de la fiche du virus (index.html) et synonymes employés par le patient zéro.
   const FICHE = ['fièvre', 'plaques rouges douloureuses', 'réflexe rotulien aboli'];
   const SYNONYMES = ['hyperthermie', 'PRD', 'ROT abolis'];
@@ -154,11 +159,17 @@
 
   const marches = E.entonnoir(base, Object.assign(E.etatVide(), requetes.trois_signes)).marches;
   const fin = marches[marches.length - 1];
-  const partMalades = A.trois_signes.length / base.visites.length;
+  const visitesMalades = base.visites.filter(v => v.malade).length;
+  const partMalades = visitesMalades / base.visites.length;
   test('sans filtre : rappel 100 %, précision = part des visites de malades',
     marches[0].rappel === 1 && marches[0].precision === partMalades, `${marches[0].rappel} / ${marches[0].precision}`);
-  test('les trois signes : rappel et précision de 100 %', fin.rappel === 1 && fin.precision === 1,
+  test('les trois signes : tous les malades (rappel 100 %), et les non-malades d\'avant le patient zéro (précision < 100 %)',
+    fin.rappel === 1 && fin.precision < 1 && fin.precision === visitesMalades / A.trois_signes.length,
     `${fin.rappel} / ${fin.precision}`);
+  const selectionParfaite = selection(Object.assign({}, requetes.trois_signes, { du: datePz }));
+  const parfaite = E.entonnoir(base, Object.assign(E.etatVide(), requetes.trois_signes, { du: datePz })).marches.at(-1);
+  test('les trois signes à partir de la première visite du patient zéro : rappel et précision de 100 %',
+    parfaite.rappel === 1 && parfaite.precision === 1, `${parfaite.rappel} / ${parfaite.precision}`);
   test('entonnoir : chaque étape écarte exactement les visites qu\'elle perd', marches[0].ecartees.length === 0
     && marches.slice(1).every((m, k) => m.ecartees.length === marches[k].visites - m.visites),
     marches.map(m => `${m.visites} (−${m.ecartees.length})`).join(' → '));
@@ -189,11 +200,12 @@
     base.visites.some(v => v.malade && v.date >= base.meta.t0 && v.test_nova === 'non disponible'));
 
   const bonus = async (saisie, lignes = []) => (await E.verifierNombreMalades(base, saisie, lignes)).statut;
-  const selectionParfaite = E.entonnoir(base, Object.assign(E.etatVide(), requetes.trois_signes)).lignes;
   test('question bonus : le nombre de patients malades est accepté', await bonus(String(A.malades.length)) === 'juste');
   test('question bonus : le nombre de visites des malades est signalé',
-    A.trois_signes.length !== A.malades.length && await bonus(String(A.trois_signes.length)) === 'visites');
+    visitesMalades !== A.malades.length && await bonus(String(visitesMalades)) === 'visites');
   test('question bonus : nombre faux avec une sélection parfaite', await bonus('1', selectionParfaite) === 'lire');
+  test('question bonus : les trois signes sans la date ne donnent pas le bon nombre',
+    await bonus(String(E.nombrePatients(troisSignes)), troisSignes) === 'selection');
   test('question bonus : nombre faux avec une sélection incomplète', await bonus('1', base.visites) === 'selection');
   test('question bonus : saisie qui n\'est pas un nombre', await bonus('beaucoup') === 'format');
   test('la liste des empreintes ne donne pas le nombre de malades', base.verification.malades.length !== A.malades.length);
@@ -203,9 +215,11 @@
     await statut({ temperatureMin: '40', criteres: [{ termes: ['Karovia'] }, plaques] }) === 'sain');
   test('piège des signes incomplets : fièvre + plaques sans réflexe → non-malade',
     await statut({ temperatureMin: '40', criteres: plaquesAffirmees }) === 'sain');
-  test('piège des synonymes : formes complètes seulement → un autre malade',
-    await statut({ temperatureMin: '40', criteres: [{ termes: ['plaques rouges douloureuses'], phrase: 'A' },
-      { termes: NEGATIONS, exclure: true, phrase: 'A' }, { termes: ['réflexe rotulien aboli'] }] }) === 'malade');
+  const formesCompletes = selection({ temperatureMin: '40', criteres: [{ termes: ['plaques rouges douloureuses'], phrase: 'A' },
+    { termes: NEGATIONS, exclure: true, phrase: 'A' }, { termes: ['réflexe rotulien aboli'] }] });
+  test('piège des synonymes : formes complètes seulement → le patient zéro n\'est pas dans la sélection',
+    formesCompletes.length > 0 && formesCompletes.every(v => v.id_patient !== A.patient_zero), `${formesCompletes.length} visites`);
+  test('piège de la date : la plus ancienne visite avec les trois signes → non-malade', await statut(requetes.trois_signes) === 'sain');
   test('tous les malades sont reconnus', (await Promise.all(A.malades.map(id => E.verifierProposition(base, id))))
     .every(r => r.statut === 'malade' || r.id === A.patient_zero));
   test('identifiant inconnu', (await E.verifierProposition(base, 'P9999')).statut === 'inconnu');

@@ -55,7 +55,8 @@ sert seulement à chiffrer le bilan dans `donnees.js`. Pour changer de mot de pa
 
 Le générateur est déterministe (graine fixe) et s'arrête avec un message si le scénario n'est pas respecté :
 solution unique, incubation, leurres (dont au moins 10 non-malades par paire de signes), part des malades sans
-test, cohérence des tables, forme de la vague, plusieurs malades rentrés de Karovia, aucune formulation de la
+test, cohérence des tables, forme de la vague, plusieurs malades rentrés de Karovia, des non-malades qui ont les
+trois signes avant le patient zéro (sans Karovia), aucune formulation de la
 fiche du virus dans les comptes rendus du patient zéro, patient zéro hors du premier quart des sélections non
 triées. Il écrit aussi `docs/solution.md` (la solution, la réponse de la
 question bonus et celles des missions, pour l'animateur) et `tests/attendu.js`.
@@ -75,14 +76,15 @@ GitHub Pages met ensuite quelques minutes à servir la nouvelle version.
 
 ## Tester
 
-Après le générateur, ouvrir `tests/tests.html` dans un navigateur. La page doit afficher « OK : 71 tests ».
+Après le générateur, ouvrir `tests/tests.html` dans un navigateur. La page doit afficher « OK : 75 tests ».
 
 Les tests confrontent le moteur de recherche à ce que le générateur a écrit dans chaque compte rendu. Ils
 vérifient aussi que la solution est unique, que les trois pièges (négation, signes incomplets, synonymes)
 mènent à une mauvaise réponse, que deux signes sur trois laissent toujours des non-malades, que le test ne
 trouve pas tous les malades, les comptes rendus non sélectionnés à chaque étape de l'entonnoir, les réponses de
 la question bonus, et qu'aucune mission d'entraînement ne donne de piste sur le virus. D'autres tests vérifient
-que plusieurs malades rentrés de Karovia ont les trois signes (le plus ancien est le patient zéro), que le
+que plusieurs malades rentrés de Karovia ont les trois signes (le plus ancien est le patient zéro), que des
+non-malades sans Karovia ont les trois signes avant lui (la sélection parfaite demande aussi la date), que le
 patient zéro n'emploie que des synonymes de la fiche du virus, et que les données sont dans le désordre.
 
 ## Dépôt public

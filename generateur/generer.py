@@ -52,6 +52,8 @@ PART_MEME_VILLE = 0.6          # part des contaminations dans la ville du malade
 NB_PATIENTS_FOND = 950
 NB_IMPORTS_KAROVIA = 5         # autres voyageurs rentrés malades de Karovia, après le patient zéro
 IMPORTS_KAROVIA = (date(1975, 4, 3), date(1975, 5, 30))   # leurs premiers signes
+NB_COINCIDENCES = 4            # non-malades qui ont les trois signes avant le patient zéro, sans Karovia
+COINCIDENCES = (date(1975, 3, 2), date(1975, 3, 17))      # leurs visites
 
 VILLES = {
     "Bordeaux": ("CHU Bordeaux", ["Dr Lefebvre", "Dr Marchand", "Dr Dupuy"]),
@@ -570,6 +572,37 @@ def presque_malade(rng: random.Random, rng_entrainement: random.Random, manque: 
     return p
 
 
+def coincidences(rng: random.Random) -> list[Patient]:
+    """Non-malades qui réunissent les trois signes début mars, avant la première visite du patient zéro : une
+    infection de la peau à plus de 40 °C chez un patient dont le diabète ou l'alcool a aboli les réflexes. Aucun ne
+    revient de Karovia : le virus n'est pas encore en France. Le joueur qui prend la plus ancienne visite avec les
+    trois signes tombe sur l'un d'eux. Tirés à part : les régler ne change pas le reste des données."""
+    debut, fin = COINCIDENCES
+    villes = ["Bordeaux"] + rng.sample([v for v in VILLES if v != "Bordeaux"], NB_COINCIDENCES - 1)
+    patients = []
+    for ville in villes:
+        p = Patient(rng.choice("FM"), rng.randint(50, 85), ville)
+        jour = jours(debut, rng.randint(0, (fin - debut).days))
+        t = round(rng.uniform(40.1, 40.9), 1)
+        if rng.random() < 0.4:
+            diagnostic = "Toxidermie"
+            plaque, fp = rng.choice(PHRASES_PLAQUES)
+            phrases = ["Éruption apparue après un traitement antibiotique.", f"Fièvre à {fr(t)} °C.", plaque]
+        else:
+            diagnostic = rng.choice(["Érysipèle", "Dermohypodermite"])
+            plaque, fp = rng.choice(PLAQUES_JAMBE)
+            phrases = [f"Douleur et gonflement de la jambe depuis {duree(rng.randint(1, 4))}.",
+                       f"Fièvre à {fr(t)} °C.", plaque]
+        reflexe, fr_ = rng.choice(PHRASES_REFLEXE)
+        phrases += [reflexe, rng.choice(TERRAINS_NEUROPATHIE)]
+        if rng.random() < 0.5:
+            phrases.append(rng.choice(["Pas de voyage récent.", "Pas de voyage à l'étranger."]))
+        p.visites = [Visite(p, jour, t, rng.randint(100, 140), rng.randint(100, 125), diagnostic, "Hospitalisation",
+                            rng.choice(VILLES[ville][1]), phrases, {f"plaques+{fp}", f"reflexe+{fr_}", "eruption"})]
+        patients.append(p)
+    return patients
+
+
 # --- Assemblage -----------------------------------------------------------------------------------------
 
 def generer() -> dict:
@@ -577,6 +610,7 @@ def generer() -> dict:
     rng_entrainement = random.Random(GRAINE + 1)
     rng_presque = random.Random(GRAINE + 2)   # régler ces leurres ne change pas le reste des données
     rng_karovia = random.Random(GRAINE + 3)   # idem pour les autres malades rentrés de Karovia
+    rng_coincidences = random.Random(GRAINE + 4)   # idem pour les trois signes sans le virus, avant le patient zéro
     malades = simuler_epidemie(rng)
     pz = malades[0]
     malades += importations_karovia(rng_karovia)
@@ -597,6 +631,7 @@ def generer() -> dict:
             patients.append(p)
 
     patients += leurres(rng, rng_entrainement)
+    patients += coincidences(rng_coincidences)
     patients += [presque_malade(rng_presque, rng_entrainement, manque)
                  for manque in ("fievre", "reflexe", "plaques") for _ in range(NB_PAR_FAMILLE)]
 
@@ -683,18 +718,24 @@ def verifier(monde: dict) -> dict:
         if not condition:
             erreurs.append(message)
 
-    exiger(all(trois_signes(v) == (v.patient.malade is not None) for v in visites),
-           "les trois signes ne séparent pas exactement malades et non-malades")
-    premiere = min((v for v in visites if trois_signes(v)), key=lambda v: (v.jour, v.id))
-    exiger(premiere.patient is pz, "la première visite avec les trois signes n'est pas celle du patient zéro")
+    premiere = min((v for v in visites if trois_signes(v) and "karovia" in v.marques), key=lambda v: (v.jour, v.id))
+    exiger(premiere.patient is pz,
+           "la première visite avec les trois signes et la Karovia n'est pas celle du patient zéro")
+    exiger(all(trois_signes(v) == (v.patient.malade is not None) for v in visites if v.jour >= premiere.jour),
+           "à partir du patient zéro, les trois signes ne séparent pas exactement malades et non-malades")
+    avant_pz = [v for v in visites if trois_signes(v) and v.jour < premiere.jour]
+    exiger(all(v.patient.malade is None and "karovia" not in v.marques for v in avant_pz),
+           "avant le patient zéro, une visite avec les trois signes est celle d'un malade ou mentionne la Karovia")
+    coincidences_pz = sorted({v.patient.id: v.patient for v in avant_pz}.values(),
+                             key=lambda p: min(v.jour for v in p.visites))
+    exiger(len(coincidences_pz) >= NB_COINCIDENCES,
+           f"{len(coincidences_pz)} non-malades ont les trois signes avant le patient zéro : {NB_COINCIDENCES} au moins")
     exiger(all(m.debut >= jours(PZ_DEBUT, INCUBATION[0]) for m in visibles[1:]),
            "un malade tombe malade moins de 14 jours après le patient zéro")
     karovia = sorted((m.patient for m in visibles if any("karovia" in v.marques for v in m.patient.visites)),
                      key=lambda p: min(v.jour for v in p.visites))
     exiger(len(karovia) >= 1 + NB_IMPORTS_KAROVIA,
            f"seulement {len(karovia)} malades mentionnent la Karovia : {1 + NB_IMPORTS_KAROVIA} au moins")
-    exiger(min((v for v in visites if trois_signes(v) and "karovia" in v.marques), key=lambda v: (v.jour, v.id)).patient
-           is pz, "parmi les malades rentrés de Karovia, le patient zéro n'a pas la visite la plus ancienne")
     for terme in FICHE:
         exiger(not any(trouve(v, terme) for v in pz.visites),
                f"un compte rendu du patient zéro reprend la fiche du virus : « {terme} »")
@@ -737,7 +778,7 @@ def verifier(monde: dict) -> dict:
     if erreurs:
         sys.exit("Scénario non respecté :\n- " + "\n- ".join(erreurs))
     return {"pz": pz, "premiere": premiere, "visibles": visibles, "semaines": semaines, "sans_test": sans_test,
-            "autres_karovia": [p for p in karovia if p is not pz]}
+            "autres_karovia": [p for p in karovia if p is not pz], "coincidences": coincidences_pz}
 
 
 def lundi(d: date) -> date:
@@ -810,12 +851,12 @@ LEXIQUE = """## Ce que vous avez fait
 
 - **Filtrer une table.** Chaque filtre sur la table Visites retire des lignes. L'entonnoir montre combien il en reste à chaque étape.
 - **Relier des tables.** Une visite appartient à un patient et a un compte rendu. On compte les patients à partir des visites retenues.
-- **Mesurer sa sélection.** Le rappel dit quelle part des malades la sélection garde, la précision quelle part de la sélection correspond à des malades. On les pousse tous deux vers 100 % avant de chercher le patient zéro.
+- **Mesurer sa sélection.** Le rappel dit quelle part des malades la sélection garde, la précision quelle part de la sélection correspond à des malades. Les trois signes gardent tous les malades, mais aussi quelques coïncidences de début mars : une date de début au 19 mars les écarte, et les deux atteignent 100 %.
 - **Chercher dans du texte libre.** Un signe s'écrit de plusieurs façons (« PRD », « plaques rouges dlr », « ROT abolis ») : il faut prévoir les synonymes et les abréviations. Les comptes rendus du patient zéro n'emploient aucune formulation de la fiche du virus. Un début de mot trouve les mots plus longs (« ROT » trouve « rotulien »), mais pas l'inverse : « réflexe rotulien » ne trouve pas « ROT abolis ».
 - **Écarter les négations.** « Pas de PRD » contient « PRD ». Chercher dans la même phrase permet d'écarter les signes niés sans perdre les autres.
-- **Croiser les critères.** Deux signes ne suffisent pas : un érysipèle chez un diabétique donne des plaques douloureuses et un réflexe aboli, sans fièvre à 40 °C. Seuls les trois signes ensemble désignent le Nova-virus.
+- **Croiser les critères.** Deux signes ne suffisent pas : un érysipèle chez un diabétique donne des plaques douloureuses et un réflexe aboli, sans fièvre à 40 °C. Il faut les trois signes ensemble, et parfois plus : un érysipèle à 40,5 °C chez un diabétique les réunit tous les trois.
 - **Se méfier des étiquettes.** Le test et le diagnostic ne couvrent pas tous les malades : le test n'existait pas avant le 5 mai, et certains CHU ne l'ont reçu qu'en juin. Les signes notés dans les comptes rendus, eux, sont là pour tous.
-- **Trier par date.** Les dossiers arrivent dans le désordre, et la Karovia ne suffit pas : plusieurs malades en reviennent. Seul le tri par date désigne celui qui a consulté le premier.
+- **Trier par date, et vérifier l'histoire.** Les dossiers arrivent dans le désordre. Les plus anciens qui réunissent les trois signes datent de début mars, sans retour de Karovia : le virus n'était pas encore en France, ce sont des coïncidences. Et la Karovia ne suffit pas : plusieurs malades en reviennent. Le tri par date désigne celui qui a consulté le premier.
 - **Remonter le temps.** Le test date du 5 mai, mais le virus circulait depuis mars. L'incubation de 2 à 4 semaines relie chaque malade à celui qui l'a contaminé."""
 
 
@@ -831,6 +872,9 @@ def bilan(monde: dict, verif: dict) -> str:
     autres_chu = [d for d in ARRIVEE_TEST.values() if d != T0]
     karovia = verif["autres_karovia"]
     karovia_dates = [min(v.jour for v in p.visites) for p in karovia]
+    coinc = verif["coincidences"]
+    coinc_dates = [min(v.jour for v in p.visites) for p in coinc]
+    coinc_diag = sorted({v.diagnostic.lower() for p in coinc for v in p.visites})
     lignes = [
         f"## Le patient zéro est {pz.id}",
         "",
@@ -855,7 +899,11 @@ def bilan(monde: dict, verif: dict) -> str:
         "",
         "## Pourquoi c'est lui",
         "",
-        "- C'est la première visite qui réunit les trois signes du Nova-virus.",
+        "- C'est la première visite qui réunit les trois signes du Nova-virus et un retour de Karovia.",
+        f"- Avant lui, entre le {date_fr(min(coinc_dates))} et le {date_fr(max(coinc_dates))}, {len(coinc)} patients "
+        f"ont déjà les trois signes ({', '.join(p.id for p in coinc)}). Aucun ne revient de Karovia : le virus "
+        f"n'était pas encore en France. Ils avaient une autre maladie à plus de 40 °C ({', '.join(coinc_diag)}), "
+        "et un diabète ou un éthylisme qui avait aboli leurs réflexes.",
         f"- Il revient de Karovia. {len(karovia)} autres malades en reviennent aussi, mais leur première visite date "
         f"au plus tôt du {date_fr(min(karovia_dates))}.",
         "- Tous les autres malades sont tombés malades au moins deux semaines après lui.",
@@ -956,6 +1004,7 @@ def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
     (RACINE / "tests" / "attendu.js").write_text(
         "window.ATTENDU = " + json.dumps(attendu, ensure_ascii=False) + ";\n", encoding="utf-8")
 
+    nb_visites_malades = sum(1 for v in visites if v.patient.malade is not None)
     leurres_avant = sorted((v for v in visites if v.jour < verif["premiere"].jour and v.patient.malade is None
                             and ("karovia" in v.marques or len(signes(v)) >= 2)), key=lambda v: (v.jour, v.id))
     solution = [
@@ -978,6 +1027,8 @@ def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
         if "karovia" in v.marques:
             piege = ("Karovia et plaques niées : négation" if any(m.startswith("plaques-") for m in v.marques)
                      else "voyage en Karovia sans les signes")
+        elif len(presents) == len(SIGNES):
+            piege = "les trois signes, sans Karovia : coïncidence avant l'arrivée du virus"
         else:
             piege = " et ".join(presents) + ", sans " + next(nom for nom in SIGNES if nom not in presents)
         solution.append(f"| {v.id} | {v.patient.id} | {v.jour:%d/%m} | {VILLES[v.patient.ville][0]} | "
@@ -1000,13 +1051,20 @@ def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
         "",
         "## Question bonus",
         "",
-        f"{len(verif['visibles'])} patients ont le Nova-virus, pour {len(attendu['trois_signes'])} visites. Le jeu "
+        f"{len(verif['visibles'])} patients ont le Nova-virus, pour {nb_visites_malades} visites. Le jeu "
         "prévient le joueur qui donne le nombre de visites : un malade peut venir plusieurs fois.",
+        "",
+        f"Sélection parfaite : les trois signes à partir du {verif['premiere'].jour:%d/%m/%Y} (première visite du "
+        f"patient zéro). Sans la date, elle garde aussi les {len(verif['coincidences'])} coïncidences de début mars "
+        f"({len(attendu['trois_signes'])} visites, {len(verif['visibles']) + len(verif['coincidences'])} patients).",
         "",
         "## Ce qui rend l'enquête difficile",
         "",
         "- Arrivée du test : " + ", ".join(f"{VILLES[ville][0]} le {date_fr(d)}" for ville, d in ARRIVEE_TEST.items())
         + f". {len(verif['sans_test'])} malades n'ont jamais eu le test.",
+        "- Non-malades qui ont les trois signes avant le patient zéro, sans Karovia : "
+        + ", ".join(f"{p.id} ({min(v.jour for v in p.visites):%d/%m}, {VILLES[p.ville][0]})" for p in verif["coincidences"])
+        + ".",
         "- Non-malades qui ont deux signes sur trois : "
         + ", ".join(f"{len(liste)} visites sans « {manque} »" for manque, liste in deux_signes(visites).items()) + ".",
         "",
@@ -1019,7 +1077,8 @@ def ecrire(monde: dict, verif: dict, mot_de_passe: str) -> None:
         "## Chiffres",
         "",
         f"- {len(patients)} patients, {len(visites)} visites, {len(verif['visibles'])} malades "
-        f"({len(attendu['trois_signes'])} visites avec les trois signes).",
+        f"({nb_visites_malades} visites de malades ; {len(attendu['trois_signes'])} visites avec les trois signes, "
+        f"dont {len(attendu['trois_signes']) - nb_visites_malades} de non-malades avant le patient zéro).",
         "- Cas détectés par semaine (lundi : nombre) : "
         + ", ".join(f"{d:%d/%m} : {n}" for d, n in verif["semaines"] if n),
     ]
